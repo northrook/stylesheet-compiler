@@ -1,0 +1,20 @@
+{
+    "name": "northrook/stylesheets",
+    "description": "Combine multiple stylesheets into one, with coalescing of selectors and properties.",
+    "type": "library",
+    "require": {
+        "northrook/support": "dev-main"
+    },
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "Northrook\\Stylesheets\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Martin",
+            "email": "hello@northrook.com"
+        }
+    ]
+}
