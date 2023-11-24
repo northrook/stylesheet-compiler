@@ -2,9 +2,6 @@
   "name": "northrook/stylesheets",
   "description": "Combine multiple stylesheets into one, with coalescing of selectors and properties.",
   "type": "library",
-  "require": {
-    "northrook/support": "dev-main"
-  },
   "license": "MIT",
   "autoload": {
     "psr-4": {
@@ -16,5 +13,10 @@
       "name": "Martin",
       "email": "mn@northrook.com"
     }
-  ]
+  ],
+  "minimum-stability": "stable",
+  "require": {
+    "php": ">=8.1",
+    "northrook/support": "dev-main"
+  }
 }

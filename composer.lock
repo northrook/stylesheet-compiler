@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "9d6517f8b4e9f71384b09094d74a2078",
+    "content-hash": "d79332647a8acdb7cbbd90c00881e27a",
     "packages": [
         {
             "name": "foroco/php-browser-detection",
@@ -63,12 +63,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/northrook/support-functions.git",
-                "reference": "e6e875c2632f8cb91d8e1bc4ff1453bad3f08961"
+                "reference": "7a765df48d1ea4037abd3590976cb3ca4ba5344c"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/northrook/support-functions/zipball/e6e875c2632f8cb91d8e1bc4ff1453bad3f08961",
-                "reference": "e6e875c2632f8cb91d8e1bc4ff1453bad3f08961",
+                "url": "https://api.github.com/repos/northrook/support-functions/zipball/7a765df48d1ea4037abd3590976cb3ca4ba5344c",
+                "reference": "7a765df48d1ea4037abd3590976cb3ca4ba5344c",
                 "shasum": ""
             },
             "require": {
@@ -98,7 +98,7 @@
                 "issues": "https://github.com/northrook/support-functions/issues",
                 "source": "https://github.com/northrook/support-functions/tree/main"
             },
-            "time": "2023-11-22T06:29:00+00:00"
+            "time": "2023-11-24T13:16:45+00:00"
         },
         {
             "name": "voku/portable-ascii",
@@ -183,7 +183,9 @@
     },
     "prefer-stable": false,
     "prefer-lowest": false,
-    "platform": [],
+    "platform": {
+        "php": ">=8.1"
+    },
     "platform-dev": [],
     "plugin-api-version": "2.6.0"
 }
