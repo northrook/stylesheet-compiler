@@ -2,14 +2,8 @@
 
 namespace Northrook\Stylesheets;
 
-use Northrook\Support\Arr;
-use Northrook\Support\Convert;
-use Northrook\Support\Debug;
-use Northrook\Support\File;
-use Northrook\Support\Num;
-use Northrook\Support\Regex;
-use Northrook\Support\Sort;
-use Northrook\Support\Str;
+use Northrook\Support\{Arr, Convert, Debug, File, Num, Regex, Sort, Str};
+
 /**
  * * Parses several stylesheets into one string
  * * String can be saved to a stylesheet.css file.
