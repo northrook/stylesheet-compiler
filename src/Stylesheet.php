@@ -36,6 +36,7 @@ class Stylesheet {
 	private readonly string $rootDir;
 	
 	public function __toString() : string {
+		$this->build();
 		return $this->styles ?? '';
 	}
 	
