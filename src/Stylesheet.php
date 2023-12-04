@@ -25,6 +25,8 @@ class Stylesheet {
 
     protected array $stylesheets = [];
 
+    public ?ColorPalette $palette = null;
+
     private array $enqueued;
 
     /**
@@ -108,8 +110,8 @@ class Stylesheet {
         $this->combineSelectorRules();
 
         $this->styles = Arr::implode( [
-            $this->buildRoot(),
             $this->buildTheme(),
+            $this->buildRoot(),
             $this->buildElements(),
             $this->buildScreens(),
             $this->buildKeyframes(),
@@ -131,9 +133,9 @@ class Stylesheet {
 
         // Loop through each supplied asset and get modified times
         $assets = array_map(
-            static fn( $enqueued ) => filemtime(
-                filename: $enqueued
-            ),
+            static fn( $enqueued ) => file_exists( $enqueued ) ? filemtime(
+                filename : $enqueued
+            ): 0,
             $this->enqueued
         );
 
@@ -392,21 +394,26 @@ class Stylesheet {
     }
 
     private function buildTheme(): ?string {
-        $theme = ['[theme="dark"] {'];
 
-// foreach (
+        if ( $this->palette === null ) {
+            return null;
+        }
+        $theme = [];
 
-//     $this->palette->generateStyleVariables( 'dark' )
+        // var_dump($this->palette->getVariables());
 
-//     as $variable => $value
+        foreach ( $this->palette->getVariables() as $name => $palette ) {
 
-// ) {
+            $theme[] = "[theme=\"$name\"] {";
+                // var_dump( $name, $theme );
 
-//     // var_dump( $variable, $value );
+            foreach ( $palette as $variable => $value ) {
+                $theme[] = "\t$variable: $value;";
+            }
 
-//     $theme[] = "\t$variable: $value;";
-        // }
-        $theme[] = '}';
+            $theme[] = '}';
+
+        }
 
         return PHP_EOL . Arr::implode(
             $theme,

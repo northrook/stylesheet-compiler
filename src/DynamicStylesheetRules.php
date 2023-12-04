@@ -285,7 +285,6 @@ final class DynamicStylesheetRules {
 					}
 				}
 			}
-		}
-		
+		}		
 	}
 }
