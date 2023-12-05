@@ -22,44 +22,43 @@ class Color {
     public function modifyHSL( mixed $array ): void {
         // var_dump( $array );
         foreach ( $array as $key => $value ) {
-            if ( is_int($value)) {
-                $this->hsl[$key] = (int)$value;
+            if ( is_int( $value ) ) {
+                $this->hsl[$key] = (int) $value;
             } else {
-                $this->hsl[$key] += (int)$value;
+                $this->hsl[$key] += (int) $value;
             }
         }
     }
 
-    public function string( ?array $modify = null): string {
+    public function string( ?array $modify = null ): string {
 
         $color = $this->hsl;
 
         if ( $modify ) {
             foreach ( $modify as $key => $value ) {
-                if ( is_int($value)) {
-                    $color[$key] = (int)$value;
+                if ( is_int( $value ) ) {
+                    $color[$key] = (int) $value;
                 } else {
-                    $color[$key] += (int)$value;
+                    $color[$key] += (int) $value;
                 }
             }
         }
-        
-        $color['h'] = $this->range($color['h'] ?? 0, 360, 0);
-        $color['s'] = $this->range($color['s'] ?? 0, 100, 0);
-        $color['l'] = $this->range($color['l'] ?? 0, 100, 0);
-        
-        
+
+        $color['h'] = $this->range( $color['h'] ?? 0, 360, 0 );
+        $color['s'] = $this->range( $color['s'] ?? 0, 100, 0 );
+        $color['l'] = $this->range( $color['l'] ?? 0, 100, 0 );
+
         $string = [
             $color['h'],
-            $color['s']. '%',
-            $color['l']. '%'
+            $color['s'] . '%',
+            $color['l'] . '%',
         ];
-    
+
         if ( isset( $color['a'] ) ) {
-            $color['a'] = $this->range($color['a'] ?? 0, 100, 0);
-            $string[] = $color['a'] / 100;
+            $color['a'] = $this->range( $color['a'] ?? 0, 100, 0 );
+            $string[]   = $color['a'] / 100;
         }
-        
+
         return implode( ',', $string );
     }
 
@@ -84,25 +83,25 @@ class Color {
         $color        = str_replace( ['hsl', '(', ')', ',', '/', '%'], ' ', $this->color );
         $color        = array_filter( explode( ' ', $color ) );
 
-        $hsl = [];
+        $hsl  = [];
         $keys = ['h', 's', 'l'];
         foreach ( $color ?? [] as $value ) {
             if ( $value ) {
                 $hsl[] = (float) $value;
             }
         }
-        
+
         if ( isset( $hsl[3] ) ) {
             $keys[] = 'a';
         }
         $this->hsl = array_combine( $keys, $hsl );
     }
 
-    private function range( int $value, float $ceil, float $floor ) : int {
-		return match ( true ) {
-			$value >= $ceil	=> $ceil,
-			$value < $floor	=> $floor,
-			default			=> $value
-		};
-	}
+    private function range( int $value, float $ceil, float $floor ): int {
+        return match ( true ) {
+            $value >= $ceil => $ceil,
+            $value < $floor => $floor,
+            default => $value
+        };
+    }
 }

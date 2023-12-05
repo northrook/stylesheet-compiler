@@ -19,13 +19,13 @@ use Northrook\Support\Str;
 class Stylesheet {
 
     private array $root      = [];
+    private array $theme      = [];
     private array $selectors = [];
     private array $screens   = [];
     private array $keyframes = [];
 
     protected array $stylesheets = [];
 
-    public ?ColorPalette $palette = null;
 
     private array $enqueued;
 
@@ -48,6 +48,7 @@ class Stylesheet {
 
     public function __construct(
         string $rootDir,
+        public ?ColorPalette $palette = null,
         public bool $force = false,
     ) {
         $this->rootDir = Str::filepath( $rootDir );
@@ -91,6 +92,7 @@ class Stylesheet {
         foreach ( array_keys( $this->enqueued ) as $stylesheet ) {
             $this->matchScreens( $stylesheet );
             $this->matchRootStyles( $stylesheet );
+            $this->matchThemeStyles( $stylesheet );
             $this->matchScreenElement( $stylesheet );
             $this->matchKeyframes( $stylesheet );
             $this->matchRules( $stylesheet );
@@ -110,7 +112,7 @@ class Stylesheet {
         $this->combineSelectorRules();
 
         $this->styles = Arr::implode( [
-            $this->buildTheme(),
+            // $this->buildTheme(),
             $this->buildRoot(),
             $this->buildElements(),
             $this->buildScreens(),
@@ -147,6 +149,7 @@ class Stylesheet {
 
         return ! empty( $assets ) && max( $assets ) >= $enqueued;
     }
+
 
     private function combineSelectorRules(): void {
         $elements = [];
@@ -225,6 +228,53 @@ class Stylesheet {
                 $variable = $this->declaration( $declaration );
 
                 $this->root[$parse][$variable->property] = $variable->value;
+            }
+
+        }
+
+    }
+
+    private function matchThemeStyles( string $parse ): void {
+
+        if ( ! $styles = $this->enqueued[$parse] ?? null ) {
+            return;
+        }
+
+        if ( $this->palette !== null ) {
+
+
+            foreach ( $this->palette->getVariables() as $name => $palette ) {
+
+                // $theme[] = "[theme=\"$name\"] {";
+                    // var_dump( $name, $theme );
+    
+                foreach ( $palette as $variable => $value ) {
+                    $this->selectors["[theme=\"$name\"]"][$variable] = $value;
+                }
+    
+                // $theme[] = '}';
+    
+            }
+
+        }
+
+
+        foreach ( Regex::matchNamedGroups(
+            pattern: '/((?<rule>\[theme.+?){(?<declaration>.+?)})/ms',
+            string: $styles,
+        ) as $theme ) {
+            // Debug::print( $match );
+            $this->updateEnqueuedStylesheet( $parse, $theme->matched );
+
+            foreach ( $this->explodeRule( $theme->rule ) as $element ) {
+
+                foreach ( $this->explodeDeclaration( $theme->declaration ) as $declaration ) {
+
+                    $declaration = $this->declaration( $declaration );
+
+                    $this->selectors[$element][$declaration->property] = $declaration->value;
+                }
+
             }
 
         }
@@ -393,33 +443,6 @@ class Stylesheet {
         );
     }
 
-    private function buildTheme(): ?string {
-
-        if ( $this->palette === null ) {
-            return null;
-        }
-        $theme = [];
-
-        // var_dump($this->palette->getVariables());
-
-        foreach ( $this->palette->getVariables() as $name => $palette ) {
-
-            $theme[] = "[theme=\"$name\"] {";
-                // var_dump( $name, $theme );
-
-            foreach ( $palette as $variable => $value ) {
-                $theme[] = "\t$variable: $value;";
-            }
-
-            $theme[] = '}';
-
-        }
-
-        return PHP_EOL . Arr::implode(
-            $theme,
-            "\n\t"
-        );
-    }
 
     private function buildElements(): ?string {
         $elements = [];
