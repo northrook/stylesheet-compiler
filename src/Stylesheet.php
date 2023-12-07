@@ -19,15 +19,21 @@ use Northrook\Support\Str;
 class Stylesheet {
 
     private array $root      = [];
-    private array $theme      = [];
+    private array $theme     = [];
     private array $selectors = [];
     private array $screens   = [];
     private array $keyframes = [];
 
     protected array $stylesheets = [];
 
-
     private array $enqueued;
+
+    private array $webkit = [
+        'backdrop-filter',
+        'tap-highlight-color',
+        'user-select',
+        'text-size-adjust',
+    ];
 
     /**
      * @var string|null The resulting CSS, or null on failure.
@@ -150,7 +156,6 @@ class Stylesheet {
         return ! empty( $assets ) && max( $assets ) >= $enqueued;
     }
 
-
     private function combineSelectorRules(): void {
         $elements = [];
 
@@ -201,6 +206,9 @@ class Stylesheet {
                 foreach ( $this->explodeDeclaration( $screen->declaration ) as $selector ) {
                     $declaration = $this->declaration( $selector );
 
+                    if ( in_array( $declaration->property, $this->webkit ) ) {
+                        $this->screens[$size][$rule]["-webkit-$declaration->property"] = $declaration->value;
+                    }
                     $this->screens[$size][$rule][$declaration->property] = $declaration->value;
                 }
 
@@ -227,6 +235,10 @@ class Stylesheet {
 
                 $variable = $this->declaration( $declaration );
 
+                if ( in_array( $declaration->property, $this->webkit ) ) {
+                    $this->root[$parse]["-webkit-$declaration->property"] = $declaration->value;
+                }
+
                 $this->root[$parse][$variable->property] = $variable->value;
             }
 
@@ -242,22 +254,20 @@ class Stylesheet {
 
         if ( $this->palette !== null ) {
 
-
             foreach ( $this->palette->getVariables() as $name => $palette ) {
 
                 // $theme[] = "[theme=\"$name\"] {";
-                    // var_dump( $name, $theme );
-    
+                // var_dump( $name, $theme );
+
                 foreach ( $palette as $variable => $value ) {
                     $this->selectors["[theme=\"$name\"]"][$variable] = $value;
                 }
-    
+
                 // $theme[] = '}';
-    
+
             }
 
         }
-
 
         foreach ( Regex::matchNamedGroups(
             pattern: '/((?<rule>\[theme.+?){(?<declaration>.+?)})/ms',
@@ -271,6 +281,10 @@ class Stylesheet {
                 foreach ( $this->explodeDeclaration( $theme->declaration ) as $declaration ) {
 
                     $declaration = $this->declaration( $declaration );
+
+                    if ( in_array( $declaration->property, $this->webkit ) ) {
+                        $this->selectors[$element]["-webkit-$declaration->property"] = $declaration->value;
+                    }
 
                     $this->selectors[$element][$declaration->property] = $declaration->value;
                 }
@@ -309,6 +323,10 @@ class Stylesheet {
 
                         $declaration = $this->declaration( $declaration );
 
+                    if ( in_array( $declaration->property, $this->webkit ) ) {
+                        $this->selectors[$element]["-webkit-$declaration->property"] = $declaration->value;
+                    }
+
                         $this->selectors[$element][$declaration->property] = $declaration->value;
                     }
 
@@ -340,6 +358,10 @@ class Stylesheet {
 
                     $declaration = $this->declaration( $declaration );
 
+                    if ( in_array( $declaration->property, $this->webkit ) ) {
+                        $this->selectors[$element]["-webkit-$declaration->property"] = $declaration->value;
+                    }
+                    
                     $this->selectors[$element][$declaration->property] = $declaration->value;
                 }
 
@@ -371,6 +393,9 @@ class Stylesheet {
 
                     $declaration = $this->declaration( $declaration );
 
+                    if ( in_array( $declaration->property, $this->webkit ) ) {
+                        $this->keyframes[trim( $keyframe->key )][trim( $animation->rule )]["-webkit-$declaration->property"] = $declaration->value;
+                    }
                     $this->keyframes[trim( $keyframe->key )][trim( $animation->rule )][$declaration->property] = $declaration->value;
                 }
 
@@ -399,6 +424,9 @@ class Stylesheet {
 
                     $declaration = $this->declaration( $declaration );
 
+                    if ( in_array( $declaration->property, $this->webkit ) ) {
+                        $this->selectors[$element]["-webkit-$declaration->property"] = $declaration->value;
+                    }
                     $this->selectors[$element][$declaration->property] = $declaration->value;
                 }
 
@@ -442,7 +470,6 @@ class Stylesheet {
             "\n\t"
         );
     }
-
 
     private function buildElements(): ?string {
         $elements = [];
