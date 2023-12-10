@@ -18,6 +18,8 @@ use Northrook\Support\Str;
  */
 class Stylesheet {
 
+    public string $defaultTheme = 'light';
+
     private array $root      = [];
     private array $theme     = [];
     private array $selectors = [];
@@ -235,10 +237,6 @@ class Stylesheet {
 
                 $variable = $this->declaration( $declaration );
 
-                if ( in_array( $declaration->property, $this->webkit ) ) {
-                    $this->root[$parse]["-webkit-$declaration->property"] = $declaration->value;
-                }
-
                 $this->root[$parse][$variable->property] = $variable->value;
             }
 
@@ -256,17 +254,17 @@ class Stylesheet {
 
             foreach ( $this->palette->getVariables() as $name => $palette ) {
 
-                // $theme[] = "[theme=\"$name\"] {";
-                // var_dump( $name, $theme );
+                $theme = "[theme=\"$name\"]";
 
                 foreach ( $palette as $variable => $value ) {
-                    $this->selectors["[theme=\"$name\"]"][$variable] = $value;
+                    
+                if ( $this->defaultTheme === $name ) {
+                    $this->selectors['html'][$variable] = $value;
                 }
-
-                // $theme[] = '}';
-
+                
+                    $this->selectors[$theme][$variable] = $value;
+                }
             }
-
         }
 
         foreach ( Regex::matchNamedGroups(
@@ -323,9 +321,9 @@ class Stylesheet {
 
                         $declaration = $this->declaration( $declaration );
 
-                    if ( in_array( $declaration->property, $this->webkit ) ) {
-                        $this->selectors[$element]["-webkit-$declaration->property"] = $declaration->value;
-                    }
+                        if ( in_array( $declaration->property, $this->webkit ) ) {
+                            $this->selectors[$element]["-webkit-$declaration->property"] = $declaration->value;
+                        }
 
                         $this->selectors[$element][$declaration->property] = $declaration->value;
                     }
@@ -361,7 +359,7 @@ class Stylesheet {
                     if ( in_array( $declaration->property, $this->webkit ) ) {
                         $this->selectors[$element]["-webkit-$declaration->property"] = $declaration->value;
                     }
-                    
+
                     $this->selectors[$element][$declaration->property] = $declaration->value;
                 }
 
@@ -377,10 +375,13 @@ class Stylesheet {
             return;
         }
 
+        // var_dump($styles);
         foreach ( Regex::matchNamedGroups(
-            pattern: "/(?<screen>^\h*?@keyframes.*?(?<key>.+?){.*?$)(?<animation>.*?}\s*?)(?<end>})/ms",
+            pattern: "/(?<screen>@keyframes.*?(?<key>.+?){.*?)(?<animation>.*?}.*?)(?<end>})/ms",
             string: $styles,
         ) as $keyframe ) {
+
+            // var_dump($keyframe);
 
             $this->updateEnqueuedStylesheet( $parse, $keyframe->matched );
 
@@ -600,7 +601,11 @@ class Stylesheet {
 
         foreach ( $this->enqueued as $index => $stylesheet ) {
 
-            $key = str_replace( [$this->rootDir . DIRECTORY_SEPARATOR, '.css', DIRECTORY_SEPARATOR], ['', '', ':'], $stylesheet );
+            $key = trim(str_replace(
+                [$this->rootDir, '.css', DIRECTORY_SEPARATOR],
+                ['', '', ':'],
+                $stylesheet
+            ), ':');
 
             if ( Str::containsAll( $stylesheet, ['{', '}'] ) ) {
                 $this->enqueued[$key] = Str::squish( $stylesheet );
