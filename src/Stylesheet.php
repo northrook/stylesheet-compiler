@@ -18,675 +18,683 @@ use Northrook\Support\Str;
  */
 class Stylesheet {
 
-    public string $defaultTheme = 'light';
+	public string $defaultTheme = 'light';
 
-    private array $root      = [];
-    private array $theme     = [];
-    private array $selectors = [];
-    private array $screens   = [];
-    private array $keyframes = [];
+	private array $root      = [];
+	private array $theme     = [];
+	private array $selectors = [];
+	private array $screens   = [];
+	private array $keyframes = [];
 
-    protected array $stylesheets = [];
+	protected array $stylesheets = [];
 
-    private array $enqueued;
+	private array $enqueued;
 
-    private array $webkit = [
-        'backdrop-filter',
-        'tap-highlight-color',
-        'user-select',
-        'text-size-adjust',
-    ];
+	private array $webkit = [
+		'backdrop-filter',
+		'tap-highlight-color',
+		'user-select',
+		'text-size-adjust',
+	];
 
-    /**
-     * @var string|null The resulting CSS, or null on failure.
-     */
-    public readonly ?string $styles;
+	/**
+	 * @var string|null The resulting CSS, or null on failure.
+	 */
+	public readonly ?string $styles;
 
-    /**
-     * @var bool True if the Stylesheet was saved successfully.
-     */
-    public readonly bool $updated;
-    private ?string $savePath = null;
+	/**
+	 * @var bool True if the Stylesheet was saved successfully.
+	 */
+	public readonly bool $updated;
+	private ?string $savePath = null;
 
-    private readonly string $rootDir;
+	private readonly string $rootDir;
 
-    public function __toString(): string {
-        return $this->styles ?? '';
-    }
+	public function __toString(): string {
+		return $this->styles ?? '';
+	}
 
-    public function __construct(
-        string $rootDir,
-        public ?ColorPalette $palette = null,
-        public bool $force = false,
-    ) {
-        $this->rootDir = Str::filepath( $rootDir );
-    }
+	public function __construct(
+		string $rootDir,
+		public ?ColorPalette $palette = null,
+		public bool $force = false,
+	) {
+		$this->rootDir = Str::filepath( $rootDir );
+	}
 
-    public function addStylesheets( string...$paths ): void {
+	public function addStylesheets( string...$paths ): void {
 
-        foreach ( $paths as $path ) {
-            $this->stylesheets['file:' . File::getFileName( $path ) . ':' . crc32( $path )] = Str::filepath( $path );
-        }
+		foreach ( $paths as $path ) {
+			$this->stylesheets['file:' . File::getFileName( $path ) . ':' . crc32( $path )] = Str::filepath( $path );
+		}
 
-    }
+	}
 
-    public function addStyleString( string $string ): void {
-        $this->stylesheets['string:' . crc32( $string )] = $string;
-    }
+	public function addStyleString( string $string ): void {
+		$this->stylesheets['string:' . crc32( $string )] = $string;
+	}
 
-    public function save( string $filename ): void {
-        $this->savePath = File::getPath( $filename, true );
+	public function save( string $filename ): void {
+		$this->savePath = File::getPath( $filename, true );
 
-        if ( $this->build() ) {
-            File::putContents( $this->styles, $this->savePath, );
-            $this->updated = true;
-        } else {
-            $this->updated = false;
-        }
+		if ( $this->build() ) {
+			File::putContents( $this->styles, $this->savePath, );
+			$this->updated = true;
+		} else {
+			$this->updated = false;
+		}
 
-    }
+	}
 
-    public function build(): bool {
+	public function build(): bool {
 
-        $this->scanEnqueuedStyles();
+		$this->scanEnqueuedStyles();
 
-        if ( ! $this->force && ! $this->updateSavedFile() ) {
-            return false;
-        }
+		if ( ! $this->force && ! $this->updateSavedFile() ) {
+			return false;
+		}
 
-        $this->enqueued = $this->getEnqueuedStyles();
+		$this->enqueued = $this->getEnqueuedStyles();
 
 // Parse the enqueued styles
-        foreach ( array_keys( $this->enqueued ) as $stylesheet ) {
-            $this->matchScreens( $stylesheet );
-            $this->matchRootStyles( $stylesheet );
-            $this->matchThemeStyles( $stylesheet );
-            $this->matchScreenElement( $stylesheet );
-            $this->matchKeyframes( $stylesheet );
-            $this->matchRules( $stylesheet );
-        }
+		foreach ( array_keys( $this->enqueued ) as $stylesheet ) {
+			$this->matchScreens( $stylesheet );
+			$this->matchRootStyles( $stylesheet );
+			$this->matchThemeStyles( $stylesheet );
+			$this->matchScreenElement( $stylesheet );
+			$this->matchKeyframes( $stylesheet );
+			$this->matchRules( $stylesheet );
+		}
 
-        // Clean up the enqueued styles, it should result in an empty array
-        $this->enqueued = array_filter(
-            $this->enqueued,
-            static fn( $content ) => trim( $content )
-        );
+		// Clean up the enqueued styles, it should result in an empty array
+		$this->enqueued = array_filter(
+			$this->enqueued,
+			static fn( $content ) => trim( $content )
+		);
 
-        if ( $this->enqueued ) {
-            Debug::log( 'The enqueued styles are not empty. Some styles were not parsed. See $this->enqueued:' . var_export( $this->enqueued, true ) );
-        }
+		if ( $this->enqueued ) {
+			Debug::log( 'The enqueued styles are not empty. Some styles were not parsed. See $this->enqueued:' . var_export( $this->enqueued, true ) );
+		}
 
-        // Combine selectors and properties
-        $this->combineSelectorRules();
+		// Combine selectors and properties
+		$this->combineSelectorRules();
 
-        $this->styles = Arr::implode( [
-            // $this->buildTheme(),
-            $this->buildRoot(),
-            $this->buildElements(),
-            $this->buildScreens(),
-            $this->buildKeyframes(),
-        ] );
+		$this->styles = Arr::implode( [
+			// $this->buildTheme(),
+			$this->buildRoot(),
+			$this->buildElements(),
+			$this->buildScreens(),
+			$this->buildKeyframes(),
+		] );
 
-        return true;
-    }
+		return true;
+	}
 
-    /**
-     * Check if any enqueued asset is newer than the saved file
-     *
-     * @return bool True if at least one asset is newer, false otherwise
-     */
-    private function updateSavedFile(): bool {
+	/**
+	 * Check if any enqueued asset is newer than the saved file
+	 *
+	 * @return bool True if at least one asset is newer, false otherwise
+	 */
+	private function updateSavedFile(): bool {
 
-        if ( $this->savePath === null ) {
-            return true;
-        }
+		if ( $this->savePath === null ) {
+			return true;
+		}
 
-        // Loop through each supplied asset and get modified times
-        $assets = array_map(
-            static fn( $enqueued ) => file_exists( $enqueued ) ? filemtime(
-                filename : $enqueued
-            ): 0,
-            $this->enqueued
-        );
+		// Loop through each supplied asset and get modified times
+		$assets = array_map(
+			static fn( $enqueued ) => file_exists( $enqueued ) ? filemtime(
+				filename : $enqueued
+			): 0,
+			$this->enqueued
+		);
 
-        $enqueued = file_exists( $this->savePath ) ? filemtime( $this->savePath ) : 0;
+		$enqueued = file_exists( $this->savePath ) ? filemtime( $this->savePath ) : 0;
 
-        // If any of the assets are newer than the saved file, return true
+		// If any of the assets are newer than the saved file, return true
 
-        // var_dump( $this->enqueued );
+		// var_dump( $this->enqueued );
 
-        return ! empty( $assets ) && max( $assets ) >= $enqueued;
-    }
+		return ! empty( $assets ) && max( $assets ) >= $enqueued;
+	}
 
-    private function combineSelectorRules(): void {
-        $elements = [];
+	private function combineSelectorRules(): void {
+		$elements = [];
 
-        foreach ( $this->selectors as $selector => $rules ) {
-            $merge = array_search( $rules, $elements, true );
+		foreach ( $this->selectors as $selector => $rules ) {
+			$merge = array_search( $rules, $elements, true );
 
-            if ( $merge ) {
-                $combined = "$merge, $selector";
-                $elements = Arr::replaceKey( $elements, $merge, $combined );
+			if ( $merge ) {
+				$combined = "$merge, $selector";
+				$elements = Arr::replaceKey( $elements, $merge, $combined );
 
-                unset( $elements[$selector] ); // ! unset current key
-            } else {
-                $elements[$selector] = $rules;
-            }
+				unset( $elements[$selector] ); // ! unset current key
+			} else {
+				$elements[$selector] = $rules;
+			}
 
-        }
+		}
 
-        $this->selectors = $elements;
-        $dynamic         = new DynamicStylesheetRules(
-            $this->rootDir,
-            [
-                'var/cache/latte/',
-            ]
-        );
-        $this->selectors = array_merge( $this->selectors, $dynamic->variables );
-        // dd( $this->elements );
-    }
+		$this->selectors = $elements;
+		$dynamic         = new DynamicStylesheetRules(
+			$this->rootDir,
+			[
+				'var/cache/latte/',
+			]
+		);
+		$this->selectors = array_merge( $this->selectors, $dynamic->variables );
+		// dd( $this->elements );
+	}
 
-    private function matchScreens( string $parse ): void {
+	private function matchScreens( string $parse ): void {
 
-        if ( ! $styles = $this->enqueued[$parse] ?? null ) {
-            return;
-        }
+		if ( ! $styles = $this->enqueued[$parse] ?? null ) {
+			return;
+		}
 
-        foreach ( Regex::matchNamedGroups(
-            pattern: '/(?<screen>@media.*?\((?<size>.+?)\).*?{)(?<elements>.*?}\s*?)(?<end>})/ms',
-            string: $styles,
-        ) as $media ) {
-            $this->updateEnqueuedStylesheet( $parse, $media->matched );
-            $size = $this->resolveMediaSize( $media->size );
+		foreach ( Regex::matchNamedGroups(
+			pattern: '/(?<screen>@media.*?\((?<size>.+?)\).*?{)(?<elements>.*?}\s*?)(?<end>})/ms',
+			subject: $styles,
+		) as $media ) {
+			$this->updateEnqueuedStylesheet( $parse, $media->matched );
+			$size = $this->resolveMediaSize( $media->size );
 
-            foreach ( Regex::matchNamedGroups(
-                pattern: "/(.*?(?<rule>\w.+?){(?<declaration>.+?)})/ms",
-                string: $media->elements,
-            ) as $screen ) {
-                $rule = trim( $screen->rule );
+			foreach ( Regex::matchNamedGroups(
+				pattern: "/(.*?(?<rule>\w.+?){(?<declaration>.+?)})/ms",
+				subject: $media->elements,
+			) as $screen ) {
+				$rule = trim( $screen->rule );
 
-                foreach ( $this->explodeDeclaration( $screen->declaration ) as $selector ) {
-                    $declaration = $this->declaration( $selector );
+				foreach ( $this->explodeDeclaration( $screen->declaration ) as $selector ) {
+					$declaration = $this->declaration( $selector );
 
-                    if ( in_array( $declaration->property, $this->webkit ) ) {
-                        $this->screens[$size][$rule]["-webkit-$declaration->property"] = $declaration->value;
-                    }
-                    $this->screens[$size][$rule][$declaration->property] = $declaration->value;
-                }
+					if ( in_array( $declaration->property, $this->webkit ) ) {
+						$this->screens[$size][$rule]["-webkit-$declaration->property"] = $declaration->value;
+					}
+					$this->screens[$size][$rule][$declaration->property] = $declaration->value;
+				}
 
-            }
+			}
 
-        }
+		}
 
-    }
+	}
 
-    private function matchRootStyles( string $parse ): void {
+	private function matchRootStyles( string $parse ): void {
 
-        if ( ! $styles = $this->enqueued[$parse] ?? null ) {
-            return;
-        }
+		if ( ! $styles = $this->enqueued[$parse] ?? null ) {
+			return;
+		}
 
-        foreach ( Regex::matchNamedGroups(
-            pattern: '/((?<rule>:root.+?){(?<declaration>.+?)})/ms',
-            string: $styles,
-        ) as $root ) {
+		foreach ( Regex::matchNamedGroups(
+			pattern: '/((?<rule>:root.+?){(?<declaration>.+?)})/ms',
+			subject: $styles,
+		) as $root ) {
 
-            $this->updateEnqueuedStylesheet( $parse, $root->matched );
+			$this->updateEnqueuedStylesheet( $parse, $root->matched );
 
-            foreach ( $this->explodeDeclaration( $root->declaration ) as $declaration ) {
+			foreach ( $this->explodeDeclaration( $root->declaration ) as $declaration ) {
 
-                $variable = $this->declaration( $declaration );
+				$variable = $this->declaration( $declaration );
 
-                $this->root[$parse][$variable->property] = $variable->value;
-            }
+				$this->root[$parse][$variable->property] = $variable->value;
+			}
 
-        }
+		}
 
-    }
+	}
 
-    private function matchThemeStyles( string $parse ): void {
+	private function matchThemeStyles( string $parse ): void {
 
-        if ( ! $styles = $this->enqueued[$parse] ?? null ) {
-            return;
-        }
+		if ( ! $styles = $this->enqueued[$parse] ?? null ) {
+			return;
+		}
 
-        if ( $this->palette !== null ) {
+		if ( $this->palette !== null ) {
 
-            foreach ( $this->palette->getVariables() as $name => $palette ) {
+			foreach ( $this->palette->getVariables() as $name => $palette ) {
 
-                $theme = "[theme=\"$name\"]";
+				$theme = "[theme=\"$name\"]";
 
-                foreach ( $palette as $variable => $value ) {
-                    
-                if ( $this->defaultTheme === $name ) {
-                    $this->selectors['html'][$variable] = $value;
-                }
-                
-                    $this->selectors[$theme][$variable] = $value;
-                }
-            }
-        }
+				foreach ( $palette as $variable => $value ) {
 
-        foreach ( Regex::matchNamedGroups(
-            pattern: '/((?<rule>\[theme.+?){(?<declaration>.+?)})/ms',
-            string: $styles,
-        ) as $theme ) {
-            // Debug::print( $match );
-            $this->updateEnqueuedStylesheet( $parse, $theme->matched );
+					if ( $this->defaultTheme === $name ) {
+						$this->selectors['html'][$variable] = $value;
+					}
 
-            foreach ( $this->explodeRule( $theme->rule ) as $element ) {
+					$this->selectors[$theme][$variable] = $value;
+				}
+			}
+		}
 
-                foreach ( $this->explodeDeclaration( $theme->declaration ) as $declaration ) {
+		foreach ( Regex::matchNamedGroups(
+			pattern: '/((?<rule>\[theme.+?){(?<declaration>.+?)})/ms',
+			subject: $styles,
+		) as $theme ) {
+			// Debug::print( $match );
+			$this->updateEnqueuedStylesheet( $parse, $theme->matched );
 
-                    $declaration = $this->declaration( $declaration );
+			foreach ( $this->explodeRule( $theme->rule ) as $element ) {
 
-                    if ( in_array( $declaration->property, $this->webkit ) ) {
-                        $this->selectors[$element]["-webkit-$declaration->property"] = $declaration->value;
-                    }
+				foreach ( $this->explodeDeclaration( $theme->declaration ) as $declaration ) {
 
-                    $this->selectors[$element][$declaration->property] = $declaration->value;
-                }
+					$declaration = $this->declaration( $declaration );
 
-            }
+					if ( in_array( $declaration->property, $this->webkit ) ) {
+						$this->selectors[$element]["-webkit-$declaration->property"] = $declaration->value;
+					}
 
-        }
+					$this->selectors[$element][$declaration->property] = $declaration->value;
+				}
 
-    }
+			}
 
-    private function matchScreenElement( string $parse ): void {
+		}
 
-        if ( ! $styles = $this->enqueued[$parse] ?? null ) {
-            return;
-        }
+	}
 
-        // $sizes = $this->setting()::screens( 'all' );
-        $sizes = [
-            'full'   => 1420,
-            'large'  => 1020,
-            'medium' => 640,
-            'small'  => 420,
-        ];
+	private function matchScreenElement( string $parse ): void {
+
+		if ( ! $styles = $this->enqueued[$parse] ?? null ) {
+			return;
+		}
+
+		// $sizes = $this->setting()::screens( 'all' );
+		$sizes = [
+			'full'   => 1420,
+			'large'  => 1020,
+			'medium' => 640,
+			'small'  => 420,
+		];
 
 // var_dump( $parse, $this->elements );
 
-        foreach ( Regex::matchNamedGroups(
-            pattern: "/(^@(?<type>.+?)\b(?<rule>.+?){(?<declaration>.+?)})/ms",
-            string: $styles,
-        ) as $match ) {
-            if ( $match->type === 'each' ) {
-                $this->updateEnqueuedStylesheet( $parse, $match->matched );
+		foreach ( Regex::matchNamedGroups(
+			pattern: "/(^@(?<type>.+?)\b(?<rule>.+?){(?<declaration>.+?)})/ms",
+			subject: $styles,
+		) as $match ) {
+			if ( $match->type === 'each' ) {
+				$this->updateEnqueuedStylesheet( $parse, $match->matched );
 
-                foreach ( $this->explodeRule( $match->rule ) as $element ) {
-                    foreach ( $this->explodeDeclaration( $match->declaration ) as $declaration ) {
+				foreach ( $this->explodeRule( $match->rule ) as $element ) {
+					foreach ( $this->explodeDeclaration( $match->declaration ) as $declaration ) {
 
-                        $declaration = $this->declaration( $declaration );
+						$declaration = $this->declaration( $declaration );
 
-                        if ( in_array( $declaration->property, $this->webkit ) ) {
-                            $this->selectors[$element]["-webkit-$declaration->property"] = $declaration->value;
-                        }
+						if ( in_array( $declaration->property, $this->webkit ) ) {
+							$this->selectors[$element]["-webkit-$declaration->property"] = $declaration->value;
+						}
 
-                        $this->selectors[$element][$declaration->property] = $declaration->value;
-                    }
+						$this->selectors[$element][$declaration->property] = $declaration->value;
+					}
 
-                }
+				}
 
-            } elseif ( array_key_exists( $match->type, $sizes ) ) {
-                $this->updateEnqueuedStylesheet( $parse, $match->matched );
+			} elseif ( array_key_exists( $match->type, $sizes ) ) {
+				$this->updateEnqueuedStylesheet( $parse, $match->matched );
 
-                foreach ( $this->explodeDeclaration( $match->declaration ) as $selector ) {
-                    $declaration = $this->declaration( $selector );
+				foreach ( $this->explodeDeclaration( $match->declaration ) as $selector ) {
+					$declaration = $this->declaration( $selector );
 
-                    $this->screens["max:$match->type"][$match->rule][$declaration->property] = $declaration->value;
-                }
+					$this->screens["max:$match->type"][$match->rule][$declaration->property] = $declaration->value;
+				}
 
-            }
+			}
 
-        }
+		}
 
-        foreach ( Regex::matchNamedGroups(
-            pattern: "/(^@each.*?(?<rule>\w.+?){(?<declaration>.+?)})/ms",
-            string: $styles,
-        ) as $match ) {
-            // Debug::print( $match );
-            $this->updateEnqueuedStylesheet( $parse, $match->matched );
+		foreach ( Regex::matchNamedGroups(
+			pattern: "/(^@each.*?(?<rule>\w.+?){(?<declaration>.+?)})/ms",
+			subject: $styles,
+		) as $match ) {
+			// Debug::print( $match );
+			$this->updateEnqueuedStylesheet( $parse, $match->matched );
 
-            foreach ( $this->explodeRule( $match->rule ) as $element ) {
+			foreach ( $this->explodeRule( $match->rule ) as $element ) {
 
-                foreach ( $this->explodeDeclaration( $match->declaration ) as $declaration ) {
+				foreach ( $this->explodeDeclaration( $match->declaration ) as $declaration ) {
 
-                    $declaration = $this->declaration( $declaration );
+					$declaration = $this->declaration( $declaration );
 
-                    if ( in_array( $declaration->property, $this->webkit ) ) {
-                        $this->selectors[$element]["-webkit-$declaration->property"] = $declaration->value;
-                    }
+					if ( in_array( $declaration->property, $this->webkit ) ) {
+						$this->selectors[$element]["-webkit-$declaration->property"] = $declaration->value;
+					}
 
-                    $this->selectors[$element][$declaration->property] = $declaration->value;
-                }
+					$this->selectors[$element][$declaration->property] = $declaration->value;
+				}
 
-            }
+			}
 
-        }
+		}
 
-    }
+	}
 
-    private function matchKeyframes( string $parse ): void {
+	private function matchKeyframes( string $parse ): void {
 
-        if ( ! $styles = $this->enqueued[$parse] ?? null ) {
-            return;
-        }
+		if ( ! $styles = $this->enqueued[$parse] ?? null ) {
+			return;
+		}
 
-        // var_dump($styles);
-        foreach ( Regex::matchNamedGroups(
-            pattern: "/(?<screen>@keyframes.*?(?<key>.+?){.*?)(?<animation>.*?}.*?)(?<end>})/ms",
-            string: $styles,
-        ) as $keyframe ) {
+		// var_dump($styles);
+		foreach ( Regex::matchNamedGroups(
+			pattern: "/@keyframes\s+?(?<key>\w.+?)\s.*?{(?<animation>.*?{.+?})\s*}/ms",
+			// pattern: "/(?<keyframes>@keyframes.*?(?<key>.+?){.*?)(?<animation>.*?}.*?)(?<end>})/ms",
+			subject: $styles,
+		) as $keyframe ) {
 
-            // var_dump($keyframe);
+			// var_dump($keyframe);
 
-            $this->updateEnqueuedStylesheet( $parse, $keyframe->matched );
+			$this->updateEnqueuedStylesheet( $parse, $keyframe->matched );
 
-            foreach ( Regex::matchNamedGroups(
-                pattern: "/(^.*?(?<rule>\w.+?){(?<declaration>.+?)})/ms",
-                string: $keyframe->animation,
-            ) as $animation ) {
+			$this->keyframes[trim( $keyframe->key )] = $keyframe->animation;
 
-                foreach ( $this->explodeDeclaration( $animation->declaration ) as $declaration ) {
+			// foreach ( Regex::matchNamedGroups(
+			//     pattern: "/(^.*?(?<rule>\w.+?){(?<declaration>.+?)})/ms",
+			//     string: $keyframe->animation,
+			//     ) as $animation ) {
 
-                    $declaration = $this->declaration( $declaration );
+			//         var_dump($animation);
+			//         foreach ( $this->explodeDeclaration( $animation->declaration ) as $declaration ) {
 
-                    if ( in_array( $declaration->property, $this->webkit ) ) {
-                        $this->keyframes[trim( $keyframe->key )][trim( $animation->rule )]["-webkit-$declaration->property"] = $declaration->value;
-                    }
-                    $this->keyframes[trim( $keyframe->key )][trim( $animation->rule )][$declaration->property] = $declaration->value;
-                }
+			//             $declaration = $this->declaration( $declaration );
 
-            }
+			//             if ( in_array( $declaration->property, $this->webkit ) ) {
+			//                 $this->keyframes[trim( $keyframe->key )][trim( $animation->rule )]["-webkit-$declaration->property"] = $declaration->value;
+			//             }
+			//             $this->keyframes[trim( $keyframe->key )][trim( $animation->rule )][$declaration->property] = $declaration->value;
+			//         }
 
-        }
+			//     }
 
-    }
+		}
 
-    private function matchRules( string $parse ): void {
+		// var_dump($this->keyframes);
+	}
 
-        if ( ! $styles = $this->enqueued[$parse] ?? null ) {
-            return;
-        }
+	private function matchRules( string $parse ): void {
 
-        foreach ( Regex::matchNamedGroups(
-            pattern: "/((?<rule>.*?){(?<declaration>.+?)})/ms",
-            string: $styles,
-        ) as $match ) {
+		if ( ! $styles = $this->enqueued[$parse] ?? null ) {
+			return;
+		}
 
-            $this->updateEnqueuedStylesheet( $parse, $match->matched );
+		foreach ( Regex::matchNamedGroups(
+			pattern: "/((?<rule>.*?){(?<declaration>.+?)})/ms",
+			subject: $styles,
+		) as $match ) {
 
-            foreach ( $this->explodeRule( $match->rule ) as $element ) {
+			$this->updateEnqueuedStylesheet( $parse, $match->matched );
 
-                foreach ( $this->explodeDeclaration( $match->declaration ) as $declaration ) {
+			foreach ( $this->explodeRule( $match->rule ) as $element ) {
 
-                    $declaration = $this->declaration( $declaration );
+				foreach ( $this->explodeDeclaration( $match->declaration ) as $declaration ) {
 
-                    if ( in_array( $declaration->property, $this->webkit ) ) {
-                        $this->selectors[$element]["-webkit-$declaration->property"] = $declaration->value;
-                    }
-                    $this->selectors[$element][$declaration->property] = $declaration->value;
-                }
+					$declaration = $this->declaration( $declaration );
 
-            }
+					if ( in_array( $declaration->property, $this->webkit ) ) {
+						$this->selectors[$element]["-webkit-$declaration->property"] = $declaration->value;
+					}
+					$this->selectors[$element][$declaration->property] = $declaration->value;
+				}
 
-        }
+			}
 
-    }
+		}
 
-    private function buildRoot(): ?string {
+	}
 
-        if ( ! $this->root ) {
-            return null;
-        }
+	private function buildRoot(): ?string {
 
-        // dd( $this->root );
+		if ( ! $this->root ) {
+			return null;
+		}
 
-        $shadow = $this->root['colors']['--baseline-100'] ?? null;
+		// dd( $this->root );
 
-        if ( $shadow ) {
-            $this->root['colors']['--shadow'] = $this->root['colors']['--baseline-100'];
-        }
+		$shadow = $this->root['colors']['--baseline-100'] ?? null;
 
-        // $this->root[]    = $this->palette->variables;
-        $root = [':root {'];
+		if ( $shadow ) {
+			$this->root['colors']['--shadow'] = $this->root['colors']['--baseline-100'];
+		}
 
-        foreach (
-            array_merge( ...array_values( $this->root ) ) as $variable => $value
-        ) {
-            // var_dump( $variable, $value );
-            $root[] = "\t$variable: $value;";
+		// $this->root[]    = $this->palette->variables;
+		$root = [':root {'];
 
-        }
+		foreach (
+			array_merge( ...array_values( $this->root ) ) as $variable => $value
+		) {
+			// var_dump( $variable, $value );
+			$root[] = "\t$variable: $value;";
 
-        $root[] = '}';
+		}
 
-        unset( $this->root );
+		$root[] = '}';
 
-        return PHP_EOL . Arr::implode(
-            $root,
-            "\n\t"
-        );
-    }
+		unset( $this->root );
 
-    private function buildElements(): ?string {
-        $elements = [];
+		return PHP_EOL . Arr::implode(
+			$root,
+			"\n\t"
+		);
+	}
 
-        foreach (
-            array_filter( $this->selectors ) as $element => $declarationBlock
-        ) {
-            $declaration = [];
-            uksort( $declarationBlock, [Sort::class, 'stylesheetDeclarations'] );
+	private function buildElements(): ?string {
+		$elements = [];
 
-            foreach (
-                $declarationBlock as $variable => $value ) {
-                $declaration[] = "$variable: $value;";
-            }
+		foreach (
+			array_filter( $this->selectors ) as $element => $declarationBlock
+		) {
+			$declaration = [];
+			uksort( $declarationBlock, [Sort::class, 'stylesheetDeclarations'] );
 
-            // Debug::print( $element, $declaration );
-            $declaration = Arr::implode(
-                $declaration,
-                "\n\t"
-            );
-            $elements[] = "$element {\n\t$declaration\n} ";
-        }
+			foreach (
+				$declarationBlock as $variable => $value ) {
+				$declaration[] = "$variable: $value;";
+			}
 
-        unset( $this->selectors );
+			// Debug::print( $element, $declaration );
+			$declaration = Arr::implode(
+				$declaration,
+				"\n\t"
+			);
+			$elements[] = "$element {\n\t$declaration\n} ";
+		}
 
-        return PHP_EOL . Arr::implode(
-            $elements,
-            "\n\n"
-        );
-    }
+		unset( $this->selectors );
 
-    private function buildScreens(): ?string {
+		return PHP_EOL . Arr::implode(
+			$elements,
+			"\n\n"
+		);
+	}
 
-        // $sizes    = $this->setting()::screens( 'all' );
-        $sizes = [
-            'full'   => 1420,
-            'large'  => 1020,
-            'medium' => 640,
-            'small'  => 420,
-        ];
-        $elements = [];
+	private function buildScreens(): ?string {
+
+		// $sizes    = $this->setting()::screens( 'all' );
+		$sizes = [
+			'full'   => 1420,
+			'large'  => 1020,
+			'medium' => 640,
+			'small'  => 420,
+		];
+		$elements = [];
 
 // var_dump( $sizes );
-        foreach (
-            array_filter( $this->screens ) as $mediaSize => $screens
-        ) {
+		foreach (
+			array_filter( $this->screens ) as $mediaSize => $screens
+		) {
 
-            $set  = Str::split( $mediaSize, ':' );
-            $type = trim( $set[0], ' :' );
-            /// TODO [low] Handle theoretical null value, or missing array value
-            $size   = Convert::pxToRem( $sizes[$set[1]] ?? null );
-            $screen = "@media ($type-width : $size)";
+			$set  = Str::split( $mediaSize, ':' );
+			$type = trim( $set[0], ' :' );
+			/// TODO [low] Handle theoretical null value, or missing array value
+			$size   = Convert::pxToRem( $sizes[$set[1]] ?? null );
+			$screen = "@media ($type-width : $size)";
 
-            $elements[] = "$screen {";
+			$elements[] = "$screen {";
 
-            foreach (
-                $screens as $element => $declarationBlock
-            ) {
-                $declaration = [];
-                uksort( $declarationBlock, [Sort::class, 'stylesheetDeclarations'] );
+			foreach (
+				$screens as $element => $declarationBlock
+			) {
+				$declaration = [];
+				uksort( $declarationBlock, [Sort::class, 'stylesheetDeclarations'] );
 
-                foreach (
-                    $declarationBlock as $variable => $value ) {
-                    $declaration[] = "$variable: $value;";
-                }
+				foreach (
+					$declarationBlock as $variable => $value ) {
+					$declaration[] = "$variable: $value;";
+				}
 
-                $declaration = Arr::implode(
-                    $declaration,
-                    "\n\t\t"
-                );
-                $elements[] = "\t$element {\n\t\t$declaration\n\t} ";
-            }
+				$declaration = Arr::implode(
+					$declaration,
+					"\n\t\t"
+				);
+				$elements[] = "\t$element {\n\t\t$declaration\n\t} ";
+			}
 
-            $elements[] = "}";
-        }
+			$elements[] = "}";
+		}
 
-        unset( $this->screens );
+		unset( $this->screens );
 
-        return PHP_EOL . Arr::implode(
-            $elements,
-            PHP_EOL . PHP_EOL
-        );
-    }
+		return PHP_EOL . Arr::implode(
+			$elements,
+			PHP_EOL . PHP_EOL
+		);
+	}
 
-    private function buildKeyframes(): ?string {
+	private function buildKeyframes(): ?string {
 
-        $keyframes = [];
+		$keyframes = [];
 
-        foreach (
-            array_filter( $this->keyframes ) as $animation => $animationFrame
-        ) {
-            $animation   = "@keyframes $animation";
-            $declaration = [];
+		foreach (
+			array_filter( $this->keyframes ) as $animation => $animationFrame
+		) {
+			$animation = "@keyframes $animation";
+			// $declaration = [];
 
-            foreach (
-                $animationFrame as $frame => $rules ) {
-                $declaration[] = "$frame {";
-                uksort( $rules, [Sort::class, 'stylesheetDeclarations'] );
+			// var_dump( $animation,$animationFrame );
+			// foreach (
+			//     $animationFrame as $frame => $rules ) {
+			//     $declaration[] = "$frame {";
+			//     uksort( $rules, [Sort::class, 'stylesheetDeclarations'] );
 
-                foreach (
-                    $rules as $variable => $value ) {
-                    $declaration[] = "\t$variable: $value;";
-                }
+			//     foreach (
+			//         $rules as $variable => $value ) {
+			//         $declaration[] = "\t$variable: $value;";
+			//     }
 
-                $declaration[] = "}";
-            }
+			//     $declaration[] = "}";
+			// }
 
-            $declaration = Arr::implode(
-                $declaration,
-                "\n\t"
-            );
-            $keyframes[] = "$animation {\n\t$declaration\n} ";
-        }
+			// $declaration = Arr::implode(
+			//     $declaration,
+			//     "\n\t"
+			// );
+			// var_dump($animationFrame);
+			$keyframes[] = "$animation {\n$animationFrame\n} ";
+		}
 
-        unset( $this->keyframes );
+		// var_dump($keyframes);
+		unset( $this->keyframes );
 
-        return PHP_EOL . Arr::implode(
-            $keyframes,
-            PHP_EOL . PHP_EOL
-        );
-    }
+		return PHP_EOL . Arr::implode(
+			$keyframes,
+			PHP_EOL . PHP_EOL
+		);
+	}
 
-    private function scanEnqueuedStyles(): void {
-        $this->enqueued = File::scanDirectories( path: $this->stylesheets, addUnexpectedValue: true );
-    }
+	private function scanEnqueuedStyles(): void {
+		$this->enqueued = File::scanDirectories( path: $this->stylesheets, addUnexpectedValue: true );
+	}
 
-    private function getEnqueuedStyles(): array {
+	private function getEnqueuedStyles(): array {
 
-        foreach ( $this->enqueued as $index => $stylesheet ) {
+		foreach ( $this->enqueued as $index => $stylesheet ) {
 
-            $key = trim(str_replace(
-                [$this->rootDir, '.css', DIRECTORY_SEPARATOR],
-                ['', '', ':'],
-                $stylesheet
-            ), ':');
+			$key = trim( str_replace(
+				[$this->rootDir, '.css', DIRECTORY_SEPARATOR],
+				['', '', ':'],
+				$stylesheet
+			), ':' );
 
-            if ( Str::containsAll( $stylesheet, ['{', '}'] ) ) {
-                $this->enqueued[$key] = Str::squish( $stylesheet );
-                unset( $this->enqueued[$index] );
-                continue;
-            }
+			if ( Str::containsAll( $stylesheet, ['{', '}'] ) ) {
+				$this->enqueued[$key] = Str::squish( $stylesheet );
+				unset( $this->enqueued[$index] );
+				continue;
+			}
 
-            if ( $style = File::getContents( $stylesheet ) ) {
-                $this->enqueued[$key] = Str::squish( $style );
-                unset( $this->enqueued[$index] );
-                continue;
-            }
+			if ( $style = File::getContents( $stylesheet ) ) {
+				$this->enqueued[$key] = Str::squish( $style );
+				unset( $this->enqueued[$index] );
+				continue;
+			}
 
-            Debug::log( "Stylesheet $stylesheet not found." );
-        }
+			Debug::log( "Stylesheet $stylesheet not found." );
+		}
 
-        return $this->enqueued;
-    }
+		return $this->enqueued;
+	}
 
-    private function resolveMediaSize( string $media ): ?string {
+	private function resolveMediaSize( string $media ): ?string {
 
-        // $sizes  = Core::settings()::screens( 'all' );
-        $sizes = [
-            'small' => '420', // px
-            'medium' => '640', // px
-            'large' => '1024', // px
-            'full' => '1420', // px | get data from full width
-        ];
-        $screen = substr( trim( $media ), 0, 3 ) . ':';
-        $px     = (int) Num::extract( $media );
-        $screen .= Num::closest( $px, $sizes, true );
+		// $sizes  = Core::settings()::screens( 'all' );
+		$sizes = [
+			'small' => '420', // px
+			'medium' => '640', // px
+			'large' => '1024', // px
+			'full' => '1420', // px | get data from full width
+		];
+		$screen = substr( trim( $media ), 0, 3 ) . ':';
+		$px     = (int) Num::extract( $media );
+		$screen .= Num::closest( $px, $sizes, true );
 
-        return $screen;
-    }
+		return $screen;
+	}
 
-    private function declaration( ?string $string, ?string $trim = ' :;' ): object {
+	private function declaration( ?string $string, ?string $trim = ' :;' ): object {
 
-        $set      = Str::split( Str::squish( $string ), ':' );
-        $property = trim( strtolower( $set[0] ), $trim );
-        $value    = trim( str_replace( [' 0px', ' 0em', ' 0rem'], ' 0', $set[1] ), $trim );
+		$set      = Str::split( Str::squish( $string ), ':' );
+		$property = trim( strtolower( $set[0] ), $trim );
+		$value    = trim( str_replace( [' 0px', ' 0em', ' 0rem'], ' 0', $set[1] ), $trim );
 
-        return (object) [
-            'property' => $property,
-            'value'    => $value,
-        ];
-    }
+		return (object) [
+			'property' => $property,
+			'value'    => $value,
+		];
+	}
 
-    private function explodeDeclaration( ?string $string ): array {
-        $declarations = explode( ';', trim( $string ) );
+	private function explodeDeclaration( ?string $string ): array {
+		$declarations = explode( ';', trim( $string ) );
 
-        foreach ( array_filter( $declarations ) as $key => &$part ) {
-            $part = trim( $part );
+		foreach ( array_filter( $declarations ) as $key => &$part ) {
+			$part = trim( $part );
 
-            if ( ! $part ) {
-                unset( $declarations[$key] );
-            }
+			if ( ! $part ) {
+				unset( $declarations[$key] );
+			}
 
-        }
+		}
 
-        return array_filter( $declarations );
-    }
+		return array_filter( $declarations );
+	}
 
-    private function explodeRule( ?string $string ): array {
-        $rule = array_filter( explode( ',', $string ) );
+	private function explodeRule( ?string $string ): array {
+		$rule = array_filter( explode( ',', $string ) );
 
-        foreach ( $rule as &$value ) {
-            $value = trim( strtolower( $value ) );
-        }
+		foreach ( $rule as &$value ) {
+			$value = trim( strtolower( $value ) );
+		}
 
-        return $rule;
-    }
+		return $rule;
+	}
 
-    /**
-     * Remove the parsed partial $string from `$this->enqueued[$stylesheet]`
-     *
-     * @param  string      $stylesheet The stylesheet to parse
-     * @param  string|null $string     The string to remove
-     * @return void
-     */
-    private function updateEnqueuedStylesheet( string $stylesheet, ?string $string ): void {
-        $this->enqueued[$stylesheet] = str_replace( $string, '', $this->enqueued[$stylesheet] );
-    }
+	/**
+	 * Remove the parsed partial $string from `$this->enqueued[$stylesheet]`
+	 *
+	 * @param  string      $stylesheet The stylesheet to parse
+	 * @param  string|null $string     The string to remove
+	 * @return void
+	 */
+	private function updateEnqueuedStylesheet( string $stylesheet, ?string $string ): void {
+		$this->enqueued[$stylesheet] = str_replace( $string, '', $this->enqueued[$stylesheet] );
+	}
 
 }
