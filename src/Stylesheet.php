@@ -69,7 +69,7 @@ class Stylesheet {
 		if ( ! $this->reset ) {
 			return;
 		}
-		
+
 		$this->reset = ( true === $this->reset ) ? 'baseline' : $this->reset;
 
 		if ( str_ends_with( $this->reset, '.css' ) ) {
@@ -117,9 +117,9 @@ class Stylesheet {
 
 		$this->enqueued = $this->getEnqueuedStyles();
 
-// Parse the enqueued styles
+		// Parse the enqueued styles
 		foreach ( array_keys( $this->enqueued ) as $stylesheet ) {
-			$this->matchScreens( $stylesheet );
+			$this->matchMedia( $stylesheet );
 			$this->matchRootStyles( $stylesheet );
 			$this->matchThemeStyles( $stylesheet );
 			$this->matchScreenElement( $stylesheet );
@@ -173,9 +173,6 @@ class Stylesheet {
 		$enqueued = file_exists( $this->savePath ) ? filemtime( $this->savePath ) : 0;
 
 		// If any of the assets are newer than the saved file, return true
-
-		// var_dump( $this->enqueued );
-
 		return ! empty( $assets ) && max( $assets ) >= $enqueued;
 	}
 
@@ -207,7 +204,7 @@ class Stylesheet {
 		// dd( $this->elements );
 	}
 
-	private function matchScreens( string $parse ): void {
+	private function matchMedia( string $parse ): void {
 
 		if ( ! $styles = $this->enqueued[$parse] ?? null ) {
 			return;
@@ -221,11 +218,12 @@ class Stylesheet {
 			$size = $this->resolveMediaSize( $media->size );
 
 			foreach ( Regex::matchNamedGroups(
-				pattern: "/(.*?(?<rule>\w.+?){(?<declaration>.+?)})/ms",
+				pattern: "/(.*?(?<rule>\S.+?){(?<declaration>.+?)})/ms",
 				subject: $media->elements,
 			) as $screen ) {
 				$rule = trim( $screen->rule );
 
+				// Debug::dump( $size,$media->elements,$media, $screen );
 				foreach ( $this->explodeDeclaration( $screen->declaration ) as $selector ) {
 					$declaration = $this->declaration( $selector );
 
@@ -233,10 +231,12 @@ class Stylesheet {
 						$this->screens[$size][$rule]["-webkit-$declaration->property"] = $declaration->value;
 					}
 					$this->screens[$size][$rule][$declaration->property] = $declaration->value;
+
 				}
 
 			}
 
+			// Debug::dump( $this->screens );
 		}
 
 	}
@@ -328,7 +328,6 @@ class Stylesheet {
 			'small'  => 420,
 		];
 
-// var_dump( $parse, $this->elements );
 
 		foreach ( Regex::matchNamedGroups(
 			pattern: "/(^@(?<type>.+?)\b(?<rule>.+?){(?<declaration>.+?)})/ms",
@@ -396,7 +395,6 @@ class Stylesheet {
 			return;
 		}
 
-		// var_dump($styles);
 		foreach ( Regex::matchNamedGroups(
 			pattern: "/@keyframes\s+?(?<key>\w.+?)\s.*?{(?<animation>.*?{.+?})\s*}/ms",
 			// pattern: "/(?<keyframes>@keyframes.*?(?<key>.+?){.*?)(?<animation>.*?}.*?)(?<end>})/ms",
@@ -547,22 +545,29 @@ class Stylesheet {
 		];
 		$elements = [];
 
-// var_dump( $sizes );
+		// var_dump( $sizes );
 		foreach (
 			array_filter( $this->screens ) as $mediaSize => $screens
 		) {
 
 			$set  = Str::split( $mediaSize, ':' );
-			$type = trim( $set[0], ' :' );
+			$size = Convert::pxToRem( $sizes[$set[1]] ?? null );
+
+			if( $size) {
+				$type = trim( $set[0], ' :' );
+				$screen = "@media ($type-width : $size)";
+				// dump( $size );
+			} else {
+				$screen = "@media ($mediaSize)";
+			}
+
+
+
 			/// TODO [low] Handle theoretical null value, or missing array value
-			$size   = Convert::pxToRem( $sizes[$set[1]] ?? null );
-			$screen = "@media ($type-width : $size)";
 
 			$elements[] = "$screen {";
 
-			foreach (
-				$screens as $element => $declarationBlock
-			) {
+			foreach ( $screens as $element => $declarationBlock ) {
 				$declaration = [];
 				uksort( $declarationBlock, [Sort::class, 'stylesheetDeclarations'] );
 
@@ -582,6 +587,7 @@ class Stylesheet {
 		}
 
 		unset( $this->screens );
+		// Debug::dump( $elements );
 
 		return PHP_EOL . Arr::implode(
 			$elements,
@@ -664,6 +670,10 @@ class Stylesheet {
 
 	private function resolveMediaSize( string $media ): ?string {
 
+		if ( ! Str::contains( $media, ['px', 'em', 'rem'] ) ) {
+			return $media;
+		}
+
 		// $sizes  = Core::settings()::screens( 'all' );
 		$sizes = [
 			'small' => '420', // px
@@ -675,7 +685,7 @@ class Stylesheet {
 		$px     = (int) Num::extract( $media );
 		$screen .= Num::closest( $px, $sizes, true );
 
-		return $screen;
+		return $screen ?? $media;
 	}
 
 	private function declaration( ?string $string, ?string $trim = ' :;' ): object {
