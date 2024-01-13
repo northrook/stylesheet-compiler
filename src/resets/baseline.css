@@ -40,18 +40,19 @@
 	letter-spacing: inherit;
 	color: inherit;
 	background-color: transparent;
+	-webkit-tap-highlight-color	: transparent;
 }
 
 /* Do we want to set a line height? */
 
 html {
+	-webkit-font-smoothing: antialiased;
 	-moz-text-size-adjust: none;
 	-webkit-text-size-adjust: none;
 	/* -webkit-text-size-adjust: 100%; */
 	text-size-adjust: none;
-	/* color-scheme: dark light;  */ /* We probably do not want this */
 	text-rendering: optimizeLegibility;
-	-webkit-font-smoothing: antialiased;
+	/* color-scheme: dark light;  */ /* We probably do not want this */
 }
 /* min body height */
 
@@ -61,14 +62,23 @@ body {
 
 /* Reapply the pointer cursor for anchor tags */
 a,
-button {
+button,
+input {
 	cursor: revert;
+	-ms-touch-action	: manipulation;
+	touch-action		: manipulation;
+	text-decoration		: none;
 }
 
 p {
 	max-inline-size: var(--max-inline-size, 64ch);
 	overflow-wrap: break-word;
 	text-wrap: pretty;
+}
+
+i,
+address {
+	font-style : normal;
 }
 
 p,
