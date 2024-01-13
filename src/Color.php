@@ -2,9 +2,11 @@
 
 namespace Northrook\Stylesheets;
 
+use Northrook\Stylesheets\Color\HSL;
+
 class Color {
 
-	public ?array $hsl = null;
+	public ?HSL $hsl = null;
 
 	// public float $hue        = 0;
 	// public float $saturation = 0;
@@ -30,9 +32,18 @@ class Color {
 		}
 	}
 
-	public function string( ?array $modify = null ): string {
+	public function hsl( ?array $modify = null ): string {
 
-		$color = $this->hsl;
+		if ( ! $this->hsl ) {
+			return '';
+		}
+
+		$color = [
+			'h' => $this->hsl->hue,
+			's' => $this->hsl->saturation,
+			'l' => $this->hsl->lightness,
+			'a' => $this->hsl->alpha,
+		];
 
 		if ( $modify ) {
 			foreach ( $modify as $key => $value ) {
@@ -59,7 +70,7 @@ class Color {
 			$string[]   = $color['a'] / 100;
 		}
 
-		return implode(  ',', $string );
+		return implode( ',', $string );
 	}
 
 	private function parseColor(): void {
@@ -72,7 +83,9 @@ class Color {
 		}
 
 		if ( str_starts_with( $this->color, 'hsl' ) ) {
-			$this->parseHSL();
+			$this->hsl = new HSL( $this->color );
+			// dd( $this->hsl, $this->color );
+			// $this->parseHSL();
 		}
 
 	}
@@ -87,7 +100,7 @@ class Color {
 		$keys = ['h', 's', 'l'];
 		foreach ( $color ?? [] as $value ) {
 			if ( $value ) {
-				$hsl[] = (float) $value;
+				$hsl[] = (int) $value;
 			}
 		}
 

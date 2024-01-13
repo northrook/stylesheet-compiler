@@ -64,6 +64,7 @@ class ColorPalette {
 
 	public function setColor( string $palette, string $hsl ) {
 		$this->palette[$palette] = new Color( $hsl );
+		// dump( $this->palette );
 	}
 
 	private function generateVariables(): array {
@@ -71,18 +72,26 @@ class ColorPalette {
 		$this->variables = [];
 
 		foreach ( $this->theme as $theme => $palette ) {
+
 			foreach ( $palette as $name => $variable ) {
+				// dump( $name, $variable );
 
 				if ( ! isset( $this->palette[$name] ) ) {
 					Debug::log( "$name Color not set", $this->palette );
 					continue;
 				}
 
+				/**
+				 * @var Color $color
+				 *  */
 				$color = $this->palette[$name];
+				// dump( $name, $color );
 
 				if ( ! $color ) {
 					continue;
 				}
+
+				$this->variables[$theme]["--$name-hue"] = $color->hsl->hue;
 
 				foreach ( $variable as $key => $value ) {
 					$key    = $this->variableKey( $name, $key );
@@ -95,10 +104,13 @@ class ColorPalette {
 					//     $color->modifyHSL( $value );
 					// }
 					// $hsl->modifyHSL( )
-					$this->variables[$theme][$key] = $color->string( $modify );
+					// $this->variables[$theme][$key] = $color->hsl( $modify );
+					$this->variables[$theme][$key] = $color->hsl->get( $modify );
 				}
+				// dd( $this->variables );
 
 			}
+
 		}
 		// foreach ( $this->palette as $palette => $color ) {
 

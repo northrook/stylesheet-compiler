@@ -20,15 +20,14 @@ class Stylesheet {
 
 	public string $defaultTheme = 'light';
 
+	private array $enqueued;
+	private array $stylesheets = [];
+
 	private array $root      = [];
 	private array $theme     = [];
 	private array $selectors = [];
-	private array $screens   = [];
+	private array $media     = [];
 	private array $keyframes = [];
-
-	protected array $stylesheets = [];
-
-	private array $enqueued;
 
 	private array $webkit = [
 		'backdrop-filter',
@@ -122,7 +121,7 @@ class Stylesheet {
 			$this->matchMedia( $stylesheet );
 			$this->matchRootStyles( $stylesheet );
 			$this->matchThemeStyles( $stylesheet );
-			$this->matchScreenElement( $stylesheet );
+			$this->matchMediaElement( $stylesheet );
 			$this->matchKeyframes( $stylesheet );
 			$this->matchRules( $stylesheet );
 		}
@@ -144,7 +143,7 @@ class Stylesheet {
 			// $this->buildTheme(),
 			$this->buildRoot(),
 			$this->buildElements(),
-			$this->buildScreens(),
+			$this->buildMedia(),
 			$this->buildKeyframes(),
 		] );
 
@@ -173,6 +172,7 @@ class Stylesheet {
 		$enqueued = file_exists( $this->savePath ) ? filemtime( $this->savePath ) : 0;
 
 		// If any of the assets are newer than the saved file, return true
+
 		return ! empty( $assets ) && max( $assets ) >= $enqueued;
 	}
 
@@ -228,9 +228,9 @@ class Stylesheet {
 					$declaration = $this->declaration( $selector );
 
 					if ( in_array( $declaration->property, $this->webkit ) ) {
-						$this->screens[$size][$rule]["-webkit-$declaration->property"] = $declaration->value;
+						$this->media[$size][$rule]["-webkit-$declaration->property"] = $declaration->value;
 					}
-					$this->screens[$size][$rule][$declaration->property] = $declaration->value;
+					$this->media[$size][$rule][$declaration->property] = $declaration->value;
 
 				}
 
@@ -314,7 +314,7 @@ class Stylesheet {
 
 	}
 
-	private function matchScreenElement( string $parse ): void {
+	private function matchMediaElement( string $parse ): void {
 
 		if ( ! $styles = $this->enqueued[$parse] ?? null ) {
 			return;
@@ -327,7 +327,6 @@ class Stylesheet {
 			'medium' => 640,
 			'small'  => 420,
 		];
-
 
 		foreach ( Regex::matchNamedGroups(
 			pattern: "/(^@(?<type>.+?)\b(?<rule>.+?){(?<declaration>.+?)})/ms",
@@ -356,7 +355,7 @@ class Stylesheet {
 				foreach ( $this->explodeDeclaration( $match->declaration ) as $selector ) {
 					$declaration = $this->declaration( $selector );
 
-					$this->screens["max:$match->type"][$match->rule][$declaration->property] = $declaration->value;
+					$this->media["max:$match->type"][$match->rule][$declaration->property] = $declaration->value;
 				}
 
 			}
@@ -503,6 +502,8 @@ class Stylesheet {
 			array_filter( $this->selectors ) as $element => $declarationBlock
 		) {
 			$declaration = [];
+			krsort( $declarationBlock   );
+			$declarationBlock = \array_reverse( $declarationBlock );
 			uksort( $declarationBlock, [Sort::class, 'stylesheetDeclarations'] );
 
 			foreach (
@@ -516,7 +517,6 @@ class Stylesheet {
 			);
 
 			if ( \str_starts_with( $element, '*' ) ) {
-				// \var_dump( $element, $declaration );
 				array_unshift( $elements, "$element {\n\t$declaration\n} " );
 			} else {
 				$elements[] = "$element {\n\t$declaration\n} ";
@@ -526,17 +526,21 @@ class Stylesheet {
 
 		unset( $this->selectors );
 
-		// \var_dump( $elements );
+		return $this->elementGroup( $elements );
+	}
 
-		return PHP_EOL . Arr::implode(
+	private function elementGroup( array $elements ): string {
+
+		// \var_dump( $elements );
+		
+		return "\n" . Arr::implode(
 			$elements,
 			"\n\n"
 		);
 	}
 
-	private function buildScreens(): ?string {
+	private function buildMedia(): ?string {
 
-		// $sizes    = $this->setting()::screens( 'all' );
 		$sizes = [
 			'full'   => 1420,
 			'large'  => 1020,
@@ -545,23 +549,20 @@ class Stylesheet {
 		];
 		$elements = [];
 
-		// var_dump( $sizes );
 		foreach (
-			array_filter( $this->screens ) as $mediaSize => $screens
+			array_filter( $this->media ) as $mediaSize => $screens
 		) {
 
 			$set  = Str::split( $mediaSize, ':' );
 			$size = Convert::pxToRem( $sizes[$set[1]] ?? null );
 
-			if( $size) {
-				$type = trim( $set[0], ' :' );
+			if ( $size ) {
+				$type   = trim( $set[0], ' :' );
 				$screen = "@media ($type-width : $size)";
 				// dump( $size );
 			} else {
 				$screen = "@media ($mediaSize)";
 			}
-
-
 
 			/// TODO [low] Handle theoretical null value, or missing array value
 
@@ -586,8 +587,7 @@ class Stylesheet {
 			$elements[] = "}";
 		}
 
-		unset( $this->screens );
-		// Debug::dump( $elements );
+		unset( $this->media );
 
 		return PHP_EOL . Arr::implode(
 			$elements,
@@ -604,8 +604,6 @@ class Stylesheet {
 		) {
 			$animation = "@keyframes $animation";
 			// $declaration = [];
-
-			// var_dump( $animation,$animationFrame );
 			// foreach (
 			//     $animationFrame as $frame => $rules ) {
 			//     $declaration[] = "$frame {";
@@ -623,11 +621,9 @@ class Stylesheet {
 			//     $declaration,
 			//     "\n\t"
 			// );
-			// var_dump($animationFrame);
 			$keyframes[] = "$animation {\n$animationFrame\n} ";
 		}
-
-		// var_dump($keyframes);
+		
 		unset( $this->keyframes );
 
 		return PHP_EOL . Arr::implode(

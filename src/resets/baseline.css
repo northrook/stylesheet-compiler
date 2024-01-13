@@ -94,7 +94,7 @@ h6 {
 /* responsive images/videos */
 img,
 picture,
-svg,
+/* svg, */
 video {
 	display: block;
 	max-width: 100%;
