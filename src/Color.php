@@ -59,7 +59,7 @@ class Color {
 			$string[]   = $color['a'] / 100;
 		}
 
-		return implode( ',', $string );
+		return implode(  ',', $string );
 	}
 
 	private function parseColor(): void {

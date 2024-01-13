@@ -58,8 +58,29 @@ class Stylesheet {
 		string $rootDir,
 		public ?ColorPalette $palette = null,
 		public bool $force = false,
+		public bool | string $reset = true
 	) {
 		$this->rootDir = Str::filepath( $rootDir );
+		$this->resetRules();
+	}
+
+	private function resetRules(): void {
+
+		if ( ! $this->reset ) {
+			return;
+		}
+		
+		$this->reset = ( true === $this->reset ) ? 'baseline' : $this->reset;
+
+		if ( str_ends_with( $this->reset, '.css' ) ) {
+			$this->reset = File::getPath( $this->reset );
+		}
+
+		if ( File::exists( __DIR__ . '/resets/' . $this->reset . '.css' ) ) {
+			$this->reset = File::getPath( __DIR__ . '/resets/' . $this->reset . '.css' );
+		}
+
+		$this->stylesheets['reset'] = $this->reset;
 	}
 
 	public function addStylesheets( string...$paths ): void {
@@ -67,6 +88,8 @@ class Stylesheet {
 		foreach ( $paths as $path ) {
 			$this->stylesheets['file:' . File::getFileName( $path ) . ':' . crc32( $path )] = Str::filepath( $path );
 		}
+
+		var_dump( $this->stylesheets );
 
 	}
 
@@ -93,6 +116,8 @@ class Stylesheet {
 		if ( ! $this->force && ! $this->updateSavedFile() ) {
 			return false;
 		}
+
+		var_dump( $this->stylesheets );
 
 		$this->enqueued = $this->getEnqueuedStyles();
 
@@ -491,15 +516,23 @@ class Stylesheet {
 				$declaration[] = "$variable: $value;";
 			}
 
-			// Debug::print( $element, $declaration );
 			$declaration = Arr::implode(
 				$declaration,
 				"\n\t"
 			);
-			$elements[] = "$element {\n\t$declaration\n} ";
+
+			if ( \str_starts_with( $element, '*' ) ) {
+				// \var_dump( $element, $declaration );
+				array_unshift( $elements, "$element {\n\t$declaration\n} " );
+			} else {
+				$elements[] = "$element {\n\t$declaration\n} ";
+			}
+
 		}
 
 		unset( $this->selectors );
+
+		// \var_dump( $elements );
 
 		return PHP_EOL . Arr::implode(
 			$elements,
