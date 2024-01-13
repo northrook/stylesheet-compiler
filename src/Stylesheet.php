@@ -89,8 +89,6 @@ class Stylesheet {
 			$this->stylesheets['file:' . File::getFileName( $path ) . ':' . crc32( $path )] = Str::filepath( $path );
 		}
 
-		var_dump( $this->stylesheets );
-
 	}
 
 	public function addStyleString( string $string ): void {
@@ -116,8 +114,6 @@ class Stylesheet {
 		if ( ! $this->force && ! $this->updateSavedFile() ) {
 			return false;
 		}
-
-		var_dump( $this->stylesheets );
 
 		$this->enqueued = $this->getEnqueuedStyles();
 
