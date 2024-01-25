@@ -396,37 +396,13 @@ class Stylesheet {
 
 		foreach ( Regex::matchNamedGroups(
 			pattern: "/@keyframes\s+?(?<key>\w.+?)\s.*?{(?<animation>.*?{.+?})\s*}/ms",
-			// pattern: "/(?<keyframes>@keyframes.*?(?<key>.+?){.*?)(?<animation>.*?}.*?)(?<end>})/ms",
 			subject: $styles,
 		) as $keyframe ) {
-
-			// var_dump($keyframe);
 
 			$this->updateEnqueuedStylesheet( $parse, $keyframe->matched );
 
 			$this->keyframes[trim( $keyframe->key )] = $keyframe->animation;
-
-			// foreach ( Regex::matchNamedGroups(
-			//     pattern: "/(^.*?(?<rule>\w.+?){(?<declaration>.+?)})/ms",
-			//     string: $keyframe->animation,
-			//     ) as $animation ) {
-
-			//         var_dump($animation);
-			//         foreach ( $this->explodeDeclaration( $animation->declaration ) as $declaration ) {
-
-			//             $declaration = $this->declaration( $declaration );
-
-			//             if ( in_array( $declaration->property, $this->webkit ) ) {
-			//                 $this->keyframes[trim( $keyframe->key )][trim( $animation->rule )]["-webkit-$declaration->property"] = $declaration->value;
-			//             }
-			//             $this->keyframes[trim( $keyframe->key )][trim( $animation->rule )][$declaration->property] = $declaration->value;
-			//         }
-
-			//     }
-
 		}
-
-		// var_dump($this->keyframes);
 	}
 
 	private function matchRules( string $parse ): void {
@@ -466,21 +442,17 @@ class Stylesheet {
 			return null;
 		}
 
-		// dd( $this->root );
-
 		$shadow = $this->root['colors']['--baseline-100'] ?? null;
 
 		if ( $shadow ) {
 			$this->root['colors']['--shadow'] = $this->root['colors']['--baseline-100'];
 		}
 
-		// $this->root[]    = $this->palette->variables;
 		$root = [':root {'];
 
 		foreach (
 			array_merge( ...array_values( $this->root ) ) as $variable => $value
 		) {
-			// var_dump( $variable, $value );
 			$root[] = "\t$variable: $value;";
 
 		}
@@ -502,10 +474,9 @@ class Stylesheet {
 			array_filter( $this->selectors ) as $element => $declarationBlock
 		) {
 			$declaration = [];
-			krsort( $declarationBlock   );
+			krsort( $declarationBlock );
 			$declarationBlock = \array_reverse( $declarationBlock );
 			uksort( $declarationBlock, [Sort::class, 'stylesheetDeclarations'] );
-			// \var_dump( $declarationBlock );
 
 			foreach (
 				$declarationBlock as $variable => $value ) {
@@ -531,9 +502,6 @@ class Stylesheet {
 	}
 
 	private function elementGroup( array $elements ): string {
-
-		// \var_dump( $elements );
-		
 		return "\n" . Arr::implode(
 			$elements,
 			"\n\n"
@@ -560,12 +528,9 @@ class Stylesheet {
 			if ( $size ) {
 				$type   = trim( $set[0], ' :' );
 				$screen = "@media ($type-width : $size)";
-				// dump( $size );
 			} else {
 				$screen = "@media ($mediaSize)";
 			}
-
-			/// TODO [low] Handle theoretical null value, or missing array value
 
 			$elements[] = "$screen {";
 
@@ -589,7 +554,6 @@ class Stylesheet {
 		}
 
 		unset( $this->media );
-		// Debug::dump( $elements );
 
 		return PHP_EOL . Arr::implode(
 			$elements,
@@ -604,28 +568,10 @@ class Stylesheet {
 		foreach (
 			array_filter( $this->keyframes ) as $animation => $animationFrame
 		) {
-			$animation = "@keyframes $animation";
-			// $declaration = [];
-			// foreach (
-			//     $animationFrame as $frame => $rules ) {
-			//     $declaration[] = "$frame {";
-			//     uksort( $rules, [Sort::class, 'stylesheetDeclarations'] );
-
-			//     foreach (
-			//         $rules as $variable => $value ) {
-			//         $declaration[] = "\t$variable: $value;";
-			//     }
-
-			//     $declaration[] = "}";
-			// }
-
-			// $declaration = Arr::implode(
-			//     $declaration,
-			//     "\n\t"
-			// );
+			$animation   = "@keyframes $animation";
 			$keyframes[] = "$animation {\n$animationFrame\n} ";
 		}
-		
+
 		unset( $this->keyframes );
 
 		return PHP_EOL . Arr::implode(
@@ -672,7 +618,6 @@ class Stylesheet {
 			return $media;
 		}
 
-		// $sizes  = Core::settings()::screens( 'all' );
 		$sizes = [
 			'small' => '420', // px
 			'medium' => '640', // px
