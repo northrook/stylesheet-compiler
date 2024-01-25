@@ -62,9 +62,8 @@ class ColorPalette {
 		return $this->variables ?? $this->generateVariables();
 	}
 
-	public function setColor( string $palette, string $hsl ) {
-		$this->palette[$palette] = new Color( $hsl );
-		// dump( $this->palette );
+	public function setColor( string $palette, string $color ) {
+		$this->palette[$palette] = new Color( $color );
 	}
 
 	private function generateVariables(): array {

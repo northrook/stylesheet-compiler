@@ -76,7 +76,7 @@ class Stylesheet {
 		}
 
 		if ( File::exists( __DIR__ . '/resets/' . $this->reset . '.css' ) ) {
-			$this->reset = File::getPath( __DIR__ . '/resets/' . $this->reset . '.css' );
+			$this->reset = File::getPath( __DIR__ . '/Resets/' . $this->reset . '.css' );
 		}
 
 		$this->stylesheets['reset'] = $this->reset;

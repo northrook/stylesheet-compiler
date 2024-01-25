@@ -1,6 +1,6 @@
 <?php
 
-namespace Northrook\Stylesheets\Color;
+namespace Northrook\Stylesheets\Colors;
 
 use Northrook\Support\Arr;
 use Northrook\Support\Debug;
