@@ -505,6 +505,7 @@ class Stylesheet {
 			krsort( $declarationBlock   );
 			$declarationBlock = \array_reverse( $declarationBlock );
 			uksort( $declarationBlock, [Sort::class, 'stylesheetDeclarations'] );
+			// \var_dump( $declarationBlock );
 
 			foreach (
 				$declarationBlock as $variable => $value ) {
@@ -588,6 +589,7 @@ class Stylesheet {
 		}
 
 		unset( $this->media );
+		// Debug::dump( $elements );
 
 		return PHP_EOL . Arr::implode(
 			$elements,
