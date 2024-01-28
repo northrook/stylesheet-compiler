@@ -194,7 +194,7 @@ class Stylesheet {
 		}
 
 		$this->selectors = $elements;
-		$dynamic         = new DynamicStylesheetRules(
+		$dynamic         = new DynamicRules(
 			$this->rootDir,
 			[
 				'var/cache/latte/',

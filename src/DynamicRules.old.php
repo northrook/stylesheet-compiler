@@ -9,12 +9,7 @@ use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use UnexpectedValueException;
 
-final class DynamicStylesheetRules {
-
-	private const ALIAS_RULE = [
-		'bg'    => 'background-color',
-		'color' => 'color',
-	];
+final class DynamicRules {
 
 	private const SIZE = [
 		'auto'   => 'auto',
@@ -25,7 +20,14 @@ final class DynamicStylesheetRules {
 		'large'  => 'large',
 	];
 
+	/** Classes run their own logic, arrays are parsed as `.class { key => value }` */
 	private const RULES = [
+		'flow' => ['.flow > * + *' => ['margin-top' => 'var(--flow-gap, 1em)']],
+		'gap'  => ['.gap' => ['gap' => 'var(--gap, 1rem)']], // TODO: Gap::class - gap, gap-x, gap-y
+		'flex' => Rules\Flex::RULES,
+	];
+
+	private const BUILD = [
 		'palette' => [
 			'bg'    => 'background-color',
 			'color' => 'color',
@@ -59,7 +61,8 @@ final class DynamicStylesheetRules {
 		],
 	];
 
-	private static array $scanDirectories = [];
+	// private static array $parsedRules = [];
+	private static array $directoriesToScan = [];
 
 	/** @var array The dynamic variables. */
 	public readonly array $variables;
@@ -67,25 +70,24 @@ final class DynamicStylesheetRules {
 	private array $dynamicVariables = [];
 	private array $filterVariables  = [];
 
-	private readonly string $rootDir;
-
 	public function __construct(
-		string $rootDir,
-		array $scanDirectories = [],
+		private readonly string $rootDir,
+		array $directories = [],
 		array $variables = [],
 	) {
-		$this->rootDir = $rootDir;
-
-		$this->assignPresetVariables();
-		$this->generateDynamicVariables( $variables );
-		$this->createAutoCompleteCache();
-		$this->scanTemplateFiles( $scanDirectories );
-		$this->variables = $this->filterVariables();
+		$this->scanTemplateFiles( $directories );
+		$this->makeRules();
+		
+		// $this->assignPresetVariables();
+		// $this->generateDynamicVariables( $variables );
+		// $this->createAutoCompleteCache();
+		// $this->scanTemplateFiles( $scanDirectories );
+		// $this->variables = $this->filterVariables();
 	}
 
 	public static function scanDirectories( array $scanDirectories ): void {
-		DynamicStylesheetRules::$scanDirectories = array_merge(
-			DynamicStylesheetRules::$scanDirectories,
+		self::$directoriesToScan = array_merge(
+			self::$directoriesToScan,
 			$scanDirectories
 		);
 	}
@@ -97,7 +99,7 @@ final class DynamicStylesheetRules {
 		$templates = [];
 		$files     = [];
 
-		foreach ( $this::$scanDirectories as $directory ) {
+		foreach ( $this::$directoriesToScan as $directory ) {
 			$path = Str::filepath( $directory, $this->rootDir );
 
 			try {
@@ -200,7 +202,7 @@ final class DynamicStylesheetRules {
 			$dynamicPalette[trim( str_replace( ['--', 'baseline'], '', $key ), '-' )] = $key;
 		}
 
-		foreach ( $this::RULES as $type => $ruleType ) {
+		foreach ( $this::BUILD as $type => $ruleType ) {
 			if ( $type === 'palette' ) {
 				foreach ( $ruleType as $create => $rule ) {
 					foreach ( $dynamicPalette as $label => $color ) {
