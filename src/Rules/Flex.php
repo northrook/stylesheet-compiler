@@ -8,7 +8,6 @@ class Flex extends AbstractRule {
 
 	protected function construct() {
 
-
 		if ( $this->has( 'flex' ) ) {
 			$this->rules( '.flex', ['display' => 'flex'] );
 		}

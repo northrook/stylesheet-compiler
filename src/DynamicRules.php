@@ -64,6 +64,7 @@ final class DynamicRules {
 
 		$this->root = [ ':root' => $root ];
 		$this->variables = $this->rule;
+		\var_dump( $this->variables );
 	}
 
 	private function parseTemplateRules(): void {
