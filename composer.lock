@@ -63,12 +63,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/northrook/support-functions.git",
-                "reference": "3854a13329561938211621de41513ae6d517f946"
+                "reference": "109a3c084ee0f71e83f12c1e992f29cb48522d13"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/northrook/support-functions/zipball/3854a13329561938211621de41513ae6d517f946",
-                "reference": "3854a13329561938211621de41513ae6d517f946",
+                "url": "https://api.github.com/repos/northrook/support-functions/zipball/109a3c084ee0f71e83f12c1e992f29cb48522d13",
+                "reference": "109a3c084ee0f71e83f12c1e992f29cb48522d13",
                 "shasum": ""
             },
             "require": {
@@ -98,7 +98,7 @@
                 "issues": "https://github.com/northrook/support-functions/issues",
                 "source": "https://github.com/northrook/support-functions/tree/main"
             },
-            "time": "2023-12-29T17:45:06+00:00"
+            "time": "2024-01-28T20:32:32+00:00"
         },
         {
             "name": "voku/portable-ascii",

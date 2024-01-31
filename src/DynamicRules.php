@@ -2,105 +2,148 @@
 
 namespace Northrook\Stylesheets;
 
-use Northrook\Support\Arr;
-use Northrook\Support\File;
-use Northrook\Support\Regex;
-use Northrook\Support\Str;
+use Northrook\Stylesheets\Rules\AbstractRule;
+use Northrook\Support\{Arr, Str, File, Regex};
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use UnexpectedValueException;
 
 final class DynamicRules {
 
-	private const SIZE = [
+	// public const 
+
+	public const SIZE = [
 		'auto'   => 'auto',
 		'null'   => '0',
-		'tiny'   => 'tiny',
-		'small'  => 'small',
-		'medium' => 'medium',
-		'large'  => 'large',
+		'tiny'   => '.125rem',
+		'small'  => '.25rem',
+		'base' => '1rem',
+		'medium' => '1.5rem',
+		'large'  => '2rem',
 	];
 
 	/** Classes run their own logic, arrays are parsed as `.class { key => value }` */
 	private const RULES = [
 		'flow' => ['.flow > * + *' => ['margin-top' => 'var(--flow-gap, 1em)']],
-		'gap'  => ['.gap' => ['gap' => 'var(--gap, 1rem)']], // TODO: Gap::class - gap, gap-x, gap-y
-		'flex' => Rules\Flex::RULES,
+		'h'    => Rules\Height::class,
+		// 'w'    => Rules\Width::class,
+		'gap'  => Rules\Gap::class,
+		'flex' => Rules\Flex::class,
+		// 'grid' => Rules\Grid::class,
+		'm' => Rules\Margin::class,
+		'p' => Rules\Padding::class,
+		'color' => Rules\Color::class,
+		'bg' => Rules\Background::class,
 	];
 
-	private const BUILD = [
-		'palette' => [
-			'bg'    => 'background-color',
-			'color' => 'color',
-		],
-		'space'   => [
-			'h' => ['margin-top'],
-			'v' => ['margin-left'],
-		],
-		'gap'     => [
-			''  => ['gap'],
-			'x' => ['column-gap'],
-			'y' => ['row-gap'],
-		],
-		'margin'  => [
-			''  => ['margin'],
-			'x' => ['margin-left', 'margin-right'],
-			'y' => ['margin-top', 'margin-bottom'],
-			't' => ['margin-top'],
-			'r' => ['margin-right'],
-			'b' => ['margin-bottom'],
-			'l' => ['margin-left'],
-		],
-		'padding' => [
-			''  => ['padding'],
-			'x' => ['padding-left', 'padding-right'],
-			'y' => ['padding-top', 'padding-bottom'],
-			't' => ['padding-top'],
-			'r' => ['padding-right'],
-			'b' => ['padding-bottom'],
-			'l' => ['padding-left'],
-		],
-	];
-
+	private array $matchRules               = [];
 	private static array $directoriesToScan = [];
 
 	/** @var array The dynamic variables. */
-	public array $variables = [];
+	public readonly array $root;
+	public readonly array $variables;
 
-	
-	private array $templateRules    = [];
-
-	private array $dynamicVariables = [];
-	private array $filterVariables  = [];
+	/** @var array All rules found in every template file. */
+	private array $templateRules = [];
+	private array $rule          = [];
 
 	public function __construct(
 		private readonly string $rootDir,
 		array $directories = [],
-		array $variables = [],
 	) {
 		$this->scanTemplateFiles( $directories );
-		// $this->makeRules();
+		$this->parseTemplateRules();
+		
+		$root = [];
+		foreach ( $this::SIZE as $key => $value ) {
+			if ( 'null' === $key || 'auto' === $key ) {
+				continue;
+			}
+			$root["--{$key}"] = $value;
+		}
 
-		\var_dump( self::$directoriesToScan );
+		$this->root = [ ':root' => $root ];
+		$this->variables = $this->rule;
+	}
+
+	private function parseTemplateRules(): void {
+
+		foreach ( $this->templateRules as $selectors ) {
+			// $selectors should always be an array
+			if ( ! is_array( $selectors ) ) {
+				continue;
+			}
+
+			// $match = $this->matchRules( $selectors );
+
+			$match = array_map(
+				callback: static fn( $selector ) => Str::before( $selector, [':', '-'] ),
+				array:$selectors
+			);
+
+			$rules = Arr::searchKeys( $this::RULES, $match );
+			if ( ! $rules ) {
+				continue;
+			}
+
+			// \var_dump( $selectors );
+			// \var_dump( $match );
+
+			foreach ( $rules as $rule ) {
+				if ( is_string( $rule ) && class_exists( $rule ) && is_subclass_of( $rule, AbstractRule::class ) ) {
+					$rule = $rule::build( $selectors );
+				}
+				// \var_dump( $rule );
+				$this->rule = array_merge( $this->rule, $rule );
+			}
+
+			// foreach ( $selectors as $selector ) {
+			// 	if ($this->matchRules( $selector )) {
+			// 		\var_dump($selector);
+			// 	}
+			// 	// \var_dump($this->matchRules( $selector ));
+
+			// 	// var_dump( $selector );
+			// }
+
+			// $rules = Arr::searchKeys( $this::RULES, $match );
+			// if ( ! $rules ) {
+			// 	continue;
+			// }
+
+			// // \var_dump( $rules );
+
+			// foreach ( $rules as $rule ) {
+			// 	if ( is_string( $rule ) && class_exists( $rule ) && is_subclass_of( $rule, AbstractRule::class ) ) {
+			// 		$rule = $rule::build( $selectors );
+			// 	}
+			// 	$this->rule = array_merge( $this->rule, $rule );
+			// }
+		}
+
 	}
 
 	private function scanTemplateFiles( array $directories ): void {
 
-		$this::scanDirectories( $directories );
+		$this::addTemplateDirectories( $directories );
 
-		$templates = [];
-		$files     = [];
-
+		$files = [];
 		foreach ( $this::$directoriesToScan as $directory ) {
-
+			
+			
 			$path = Str::filepath( $directory, $this->rootDir );
 
+			if ( is_file( $path ) ) {
+				$files[] = File::getContents( $path );
+				continue;
+			}
+			
 			try {
 				$iterator = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $path ) );
 			} catch ( UnexpectedValueException ) {
 				continue;
 			}
-
+			
 			foreach ( $iterator as $file ) {
 				if ( $file->isDir() ) {
 					continue;
@@ -108,42 +151,23 @@ final class DynamicRules {
 				$files[] = Str::squish( File::getContents( $file->getPathname() ) );
 			}
 		}
-
+		
+		// \var_dump($files);
 		foreach ( $files as $template ) {
 			$classes = Regex::matchNamedGroups(
 				'/class="(?<class>.*?)"/s',
 				$template
 			);
 			foreach ( $classes as $get ) {
-				$string = \preg_replace( '/\'.*?\'/s', ' ', $get->class );
-
-				// $selectors = array_filter( explode( ' ', $string ) );
+				$string                = \preg_replace( '/\'.*?\'/s', ' ', $get->class );
 				$selectors             = Arr::explode( ' ', $string, true );
 				$this->templateRules[] = $selectors;
-				// if ( \count( $selectors ) > 1 ) {
-				// 	// \dump( $selectors );
-				// }
-				/// TODO Combined classes such as flex.reverse does not trigger generation
-				//!      Is this an issue?
-				array_push( $templates, ...explode( ' ', $string ) );
 			}
 		}
-
-		$templates = array_flip( $templates );
-
-		// dd( $this::$scanDirectories, $templates, $this->templateRules );
-		foreach ( $templates as $key => $void ) {
-			unset( $templates[$key] );
-			if ( ! $key ) {
-				continue;
-			}
-			$templates[".$key"] = $key;
-		}
-		// dd( $this->templateRules );
-		$this->filterVariables = $templates;
-
+		
+		// \var_dump( $this->templateRules );
 	}
-
+	
 	/** Add directories to scan for template files.
 	 * * The scanned directories will be searched recursively.
 	 *

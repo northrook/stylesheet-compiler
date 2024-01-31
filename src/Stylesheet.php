@@ -201,6 +201,7 @@ class Stylesheet {
 			]
 		);
 		$this->selectors = array_merge( $this->selectors, $dynamic->variables );
+		// \var_dump($this->selectors);
 		// dd( $this->elements );
 	}
 
