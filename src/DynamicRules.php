@@ -25,7 +25,6 @@ final class DynamicRules {
 
 	/** Classes run their own logic, arrays are parsed as `.class { key => value }` */
 	private const RULES = [
-		// 'flow' => ['.flow > * + *' => ['margin-top' => 'var(--flow-gap, 1em)']],
 		'flow' => Rules\Flow::class,
 		'h'    => Rules\Height::class,
 		'w'    => Rules\Width::class,
