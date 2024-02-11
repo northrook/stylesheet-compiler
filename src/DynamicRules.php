@@ -34,6 +34,7 @@ final class DynamicRules {
 		// 'grid' => Rules\Grid::class,
 		'm' => Rules\Margin::class,
 		'p' => Rules\Padding::class,
+		'r' => Rules\Radius::class,
 		'color' => Rules\Color::class,
 		'bg' => Rules\Background::class,
 	];

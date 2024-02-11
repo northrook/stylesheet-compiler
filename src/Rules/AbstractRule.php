@@ -100,8 +100,7 @@ abstract class AbstractRule {
 
 		foreach ( DynamicRules::SIZE as $key => $value ) {
 			if ( str_starts_with( $key, $size ) ) {
-				// var_dump( $key );
-				$this->value = ( 'null' === $key || 'auto' === $key ) ? $value : "var(--{$key}, {$value})";
+				$this->value = ( in_array($key, ['null', 'auto', 'full'], true) ) ? $value : "var(--{$key}, {$value})";
 				break;
 			}
 		}
