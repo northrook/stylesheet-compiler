@@ -12,25 +12,24 @@ class Padding extends AbstractRule {
 
 	protected function construct() {
 
-		$this->padding = match ( Str::before( $this->class, ':' ) ) {
-			'p-x' => 'horizontal',
-			'p-y' => 'vertical',
-			default => 'padding',
+		$type = Str::before( $this->class, ':' ) ;
+		
+		match ($type) {
+			'p-x' => $this->rules( ".{$this->class}", [
+				'padding-left'  => $this->value ?? 'var(--margin)',
+				'padding-right' => $this->value ?? 'var(--margin)']
+			),
+			'p-y' => $this->rules( ".{$this->class}", [
+				'padding-top'    => $this->value ?? 'var(--margin)',
+				'padding-bottom' => $this->value ?? 'var(--margin)']
+			),
+			'p-t' => $this->rules( ".{$this->class}",['padding-top' => $this->value ?? 'var(--margin)'] ),
+			'p-r' => $this->rules( ".{$this->class}",['padding-right' => $this->value ?? 'var(--margin)'] ),
+			'p-b' => $this->rules( ".{$this->class}",['padding-bottom' => $this->value ?? 'var(--margin)'] ),
+			'p-l' => $this->rules( ".{$this->class}",['padding-left' => $this->value ?? 'var(--margin)'] ),
+			default => $this->rules( ".{$this->class}", ['padding' => $this->value ?? 'var(--margin)'] ),
 		};
 
-		if ( $this->padding === 'horizontal' ) {
-			$this->rules( ".{$this->class}", [
-				'padding-left'  => $this->value ?? 'var(--padding)',
-				'padding-right' => $this->value ?? 'var(--padding)']
-			);
-		} else if ( $this->padding === 'vertical' ) {
-			$this->rules( ".{$this->class}", [
-				'padding-top'    => $this->value ?? 'var(--padding)',
-				'padding-bottom' => $this->value ?? 'var(--padding)']
-			);
-		} else {
-			$this->rules( ".{$this->class}", [$this->padding => $this->value ?? 'var(--padding)'] );
-		}
 	}
 
 }

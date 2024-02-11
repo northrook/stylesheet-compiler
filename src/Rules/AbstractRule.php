@@ -3,6 +3,8 @@
 namespace Northrook\Stylesheets\Rules;
 
 use Northrook\Stylesheets\DynamicRules;
+use Northrook\Stylesheets\Rules\Types\Value;
+use Northrook\Support\Arr;
 use Northrook\Support\Str;
 
 abstract class AbstractRule {
@@ -50,7 +52,7 @@ abstract class AbstractRule {
 		$this->parse = $array;
 
 		foreach ( $this->parse as $value ) {
-			if ( \str_starts_with( $value, (string) $this::TRIGGER ) ) {
+			if ( str_starts_with( $value, (string) $this::TRIGGER ) ) {
 				$this->class = $value;
 			}
 		}
@@ -62,15 +64,30 @@ abstract class AbstractRule {
 		$this->value( $this->class );
 	}
 
-	protected function rules( string $class, array $rules ): void {
-
+	private function escapeRuleString( string $class ): string {
+		
 		$class       = \str_ireplace( '#', '\#', $class );
 		$class       = Str::replace( ':', '\:', $class, 1 );
-		$this->rules = array_merge_recursive( $this->rules, [$class => $rules] );
+
+		return $class;
+		
 	}
 
-	protected function has( $class ): bool {
-		return in_array( $class, $this->parse, true );
+	protected function rules( string $class, array $rules ): void {
+
+		// $class       = \str_ireplace( '#', '\#', $class );
+		// $class       = Str::replace( ':', '\:', $class, 1 );
+
+		$class = $this->escapeRuleString( $class );
+		$this->rules = array_merge_recursive( $this->rules, [$class => $rules] );
+		if ( static::TRIGGER === 'flow') {
+			// \var_dump('classdump:', $class, $rules, $this->rules);
+		}
+	}
+
+	protected function has( $class ): bool | string {
+		$has= Arr::has( $this->parse, $class, 'startsWith' );
+		return is_string( $has ) ?  $this->escapeRuleString($has) : $has;
 	}
 
 	protected function value( string $class ) {
@@ -95,6 +112,13 @@ abstract class AbstractRule {
 
 	}
 
+	/** Returns the `$value` property if it exists
+	 * 
+	 * * If `$value` does not start with a `#`, it will be converted to `var(--$value)`
+	 * * If `$value` starts with a `#`, it will be returned as-is
+	 * 
+	 * @return null|string
+	 * */
 	protected function color(): ?string {
 
 		if ( ! $this->value ) {

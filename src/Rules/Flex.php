@@ -12,12 +12,14 @@ class Flex extends AbstractRule {
 			$this->rules( '.flex', ['display' => 'flex'] );
 		}
 
-		// Treat `flow` as flex.col
-		if ( $this->has( 'flow' ) ) {
+		$flow = $this->has( 'flow' );
+		if ( $flow ) {
 			if ( $this->has( 'reverse' ) ) {
-				$this->rules['.flex.flow.reverse'] = ['flex-direction' => 'column-reverse'];
+				$flow = $flow === true ? 'flow' : $flow;
+				$this->rules[".flex.$flow.reverse"] = ['flex-direction' => 'column-reverse'];
+				// $this->rules['.flex[class*="flow"].reverse'] = ['flex-direction' => 'column-reverse'];
 			} else {
-				$this->rules['.flex.flow'] = ['flex-direction' => 'column'];
+				$this->rules['.flex[class*="flow"]'] = ['flex-direction' => 'column'];
 			}
 
 		} else if ( $this->has( 'col' ) ) {
