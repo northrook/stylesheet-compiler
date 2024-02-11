@@ -615,6 +615,9 @@ class Stylesheet {
 
 	private function resolveMediaSize( string $media ): ?string {
 
+		// TODO: This is a bandaid
+		return $media;
+
 		if ( ! Str::contains( $media, ['px', 'em', 'rem'] ) ) {
 			return $media;
 		}
