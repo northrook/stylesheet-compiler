@@ -20,6 +20,7 @@ final class DynamicRules {
 		'base' => '1rem',
 		'medium' => '1.5rem',
 		'large'  => '2rem',
+		'full'   => '100%',
 	];
 
 	/** Classes run their own logic, arrays are parsed as `.class { key => value }` */
@@ -27,7 +28,7 @@ final class DynamicRules {
 		// 'flow' => ['.flow > * + *' => ['margin-top' => 'var(--flow-gap, 1em)']],
 		'flow' => Rules\Flow::class,
 		'h'    => Rules\Height::class,
-		// 'w'    => Rules\Width::class,
+		'w'    => Rules\Width::class,
 		'gap'  => Rules\Gap::class,
 		'flex' => Rules\Flex::class,
 		// 'grid' => Rules\Grid::class,

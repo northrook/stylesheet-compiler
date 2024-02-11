@@ -628,6 +628,7 @@ class Stylesheet {
 		$screen = substr( trim( $media ), 0, 3 ) . ':';
 		$px     = (int) Num::extract( $media );
 		$screen .= Num::closest( $px, $sizes, true );
+		
 
 		return $screen ?? $media;
 	}
