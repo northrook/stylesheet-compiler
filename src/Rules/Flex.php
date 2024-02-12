@@ -20,21 +20,24 @@ class Flex extends AbstractRule {
 			} else {
 				$this->rules[".flex.$flow"]  = ['flex-direction' => 'column'];
 			}
-
-		} else if ( $this->has( 'col' ) ) {
+		} else if ( $this->has( 'center' ) ) {
 			if ( $this->has( 'reverse' ) ) {
-				$this->rules['.flex.col.reverse'] = ['flex-direction' => 'column-reverse'];
+				$this->rules['.flex.reverse.center'] = [
+					'align-items' => 'center',
+					'justify-content' => 'center',
+					'flex-direction' => 'row-reverse'
+				];
 			} else {
-				$this->rules['.flex.col'] = ['flex-direction' => 'column'];
+				$this->rules['.flex.center'] = [
+					'align-items' => 'center',
+					'justify-content' => 'center',
+				];
 			}
 
 		} else {
 			if ( $this->has( 'reverse' ) ) {
 				$this->rules['.flex.reverse'] = ['flex-direction' => 'row-reverse'];
-			} else {
-				// $this->rules( '.flex', ['flex-direction' => 'row'] );
-				// $this->rules['.flex'] = ['flex-direction' => 'row'];
-			}
+			} 
 		}
 
 		if ( $this->has( 'align-top' ) ) {
