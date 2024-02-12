@@ -126,7 +126,9 @@ abstract class AbstractRule {
 		}
 
 		if ( false === str_starts_with( $this->value ?? '', '#' ) ) {
-			$this->value = "var(--{$this->value})";
+			if (Str::isNumeric($this->value)) $this->value = "baseline-{$this->value}";
+
+			$this->value = "hsla(var(--{$this->value}))";
 		}
 
 		return $this->value;

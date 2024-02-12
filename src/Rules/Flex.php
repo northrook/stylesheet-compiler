@@ -12,7 +12,6 @@ class Flex extends AbstractRule {
 			$this->rules( '.flex', ['display' => 'flex'] );
 		}
 
-
 		$flow = $this->has( 'flow' );
 		if ( $flow ) {
 			if ( $this->has( 'reverse' ) ) {
