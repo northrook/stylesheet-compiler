@@ -3,21 +3,25 @@
 namespace Northrook\Stylesheets;
 
 use Northrook\Stylesheets\Rules\AbstractRule;
-use Northrook\Support\{Arr, Str, File, Regex};
+
+use Northrook\Support\Arr;
+use Northrook\Support\File;
+use Northrook\Support\Regex;
+use Northrook\Support\Str;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use UnexpectedValueException;
 
 final class DynamicRules {
 
-	// public const 
+	// public const
 
 	public const SIZE = [
 		'auto'   => 'auto',
 		'null'   => '0',
 		'tiny'   => '.125rem',
 		'small'  => '.25rem',
-		'base' => '1rem',
+		'base'   => '1rem',
 		'medium' => '1.5rem',
 		'large'  => '2rem',
 		'full'   => '100%',
@@ -25,17 +29,17 @@ final class DynamicRules {
 
 	/** Classes run their own logic, arrays are parsed as `.class { key => value }` */
 	private const RULES = [
-		'flow' => Rules\Flow::class,
-		'h'    => Rules\Height::class,
-		'w'    => Rules\Width::class,
-		'gap'  => Rules\Gap::class,
-		'flex' => Rules\Flex::class,
+		'flow'  => Rules\Flow::class,
+		'h'     => Rules\Height::class,
+		'w'     => Rules\Width::class,
+		'gap'   => Rules\Gap::class,
+		'flex'  => Rules\Flex::class,
 		// 'grid' => Rules\Grid::class,
-		'm' => Rules\Margin::class,
-		'p' => Rules\Padding::class,
-		'r' => Rules\Radius::class,
+		'm'     => Rules\Margin::class,
+		'p'     => Rules\Padding::class,
+		'r'     => Rules\Radius::class,
 		'color' => Rules\Color::class,
-		'bg' => Rules\Background::class,
+		'bg'    => Rules\Background::class,
 	];
 
 	private array $matchRules               = [];
@@ -55,7 +59,7 @@ final class DynamicRules {
 	) {
 		$this->scanTemplateFiles( $directories );
 		$this->parseTemplateRules();
-		
+
 		$root = [];
 		foreach ( $this::SIZE as $key => $value ) {
 			if ( 'null' === $key || 'auto' === $key ) {
@@ -64,20 +68,19 @@ final class DynamicRules {
 			$root["--{$key}"] = $value;
 		}
 
-		$this->root = [ ':root' => $root ];
+		$this->root      = [':root' => $root];
 		$this->variables = $this->rule;
-		// \var_dump( $this->variables );
+		
 	}
 
 	private function parseTemplateRules(): void {
 
 		foreach ( $this->templateRules as $selectors ) {
+
 			// $selectors should always be an array
 			if ( ! is_array( $selectors ) ) {
 				continue;
 			}
-
-			// $match = $this->matchRules( $selectors );
 
 			$match = array_map(
 				callback: static fn( $selector ) => Str::before( $selector, [':', '-'] ),
@@ -85,43 +88,17 @@ final class DynamicRules {
 			);
 
 			$rules = Arr::searchKeys( $this::RULES, $match );
+
 			if ( ! $rules ) {
 				continue;
 			}
-
-			// \var_dump( $selectors );
-			// \var_dump( $match );
 
 			foreach ( $rules as $rule ) {
 				if ( is_string( $rule ) && class_exists( $rule ) && is_subclass_of( $rule, AbstractRule::class ) ) {
 					$rule = $rule::build( $selectors );
 				}
-				// \var_dump( $rule );
 				$this->rule = array_merge( $this->rule, $rule );
 			}
-
-			// foreach ( $selectors as $selector ) {
-			// 	if ($this->matchRules( $selector )) {
-			// 		\var_dump($selector);
-			// 	}
-			// 	// \var_dump($this->matchRules( $selector ));
-
-			// 	// var_dump( $selector );
-			// }
-
-			// $rules = Arr::searchKeys( $this::RULES, $match );
-			// if ( ! $rules ) {
-			// 	continue;
-			// }
-
-			// // \var_dump( $rules );
-
-			// foreach ( $rules as $rule ) {
-			// 	if ( is_string( $rule ) && class_exists( $rule ) && is_subclass_of( $rule, AbstractRule::class ) ) {
-			// 		$rule = $rule::build( $selectors );
-			// 	}
-			// 	$this->rule = array_merge( $this->rule, $rule );
-			// }
 		}
 
 	}
@@ -132,30 +109,37 @@ final class DynamicRules {
 
 		$files = [];
 		foreach ( $this::$directoriesToScan as $directory ) {
-			
-			
+
+			$match = false;
+
+			if ( \str_contains( $directory, '*' ) ) {
+				$match     = trim( strrchr( $directory, '*' ), '*' );
+				$directory = strstr( $directory, '*', true );
+			}
+
 			$path = Str::filepath( $directory, $this->rootDir );
 
 			if ( is_file( $path ) ) {
 				$files[] = File::getContents( $path );
 				continue;
 			}
-			
+
 			try {
 				$iterator = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $path ) );
 			} catch ( UnexpectedValueException ) {
 				continue;
 			}
-			
+
 			foreach ( $iterator as $file ) {
-				if ( $file->isDir() ) {
+				if ( $file->isDir()
+					|| str_ends_with( $file->getFilename(), '.lock' )
+					|| ( $match && ! Str::contains( $file->getFilename(), $match ) ) ) {
 					continue;
 				}
 				$files[] = Str::squish( File::getContents( $file->getPathname() ) );
 			}
 		}
-		
-		// \var_dump($files);
+
 		foreach ( $files as $template ) {
 			$classes = Regex::matchNamedGroups(
 				'/class="(?<class>.*?)"/s',
@@ -167,10 +151,8 @@ final class DynamicRules {
 				$this->templateRules[] = $selectors;
 			}
 		}
-		
-		// \var_dump( $this->templateRules );
 	}
-	
+
 	/** Add directories to scan for template files.
 	 * * The scanned directories will be searched recursively.
 	 *

@@ -11,6 +11,12 @@ class ColorPalette {
 		'primary'  => null,
 	];
 
+	public function __construct( array $palette = [], ) {
+		foreach ( $palette as $key => $value ) {
+			$this->setColor( $key, $value );
+		}
+	}
+
 	private array $theme = [
 		'light' => [
 			'baseline' => [
@@ -106,18 +112,9 @@ class ColorPalette {
 					// $this->variables[$theme][$key] = $color->hsl( $modify );
 					$this->variables[$theme][$key] = $color->hsl->get( $modify );
 				}
-				// dd( $this->variables );
-
 			}
-
 		}
-		// foreach ( $this->palette as $palette => $color ) {
-
-		//     if ( ! $color ) {
-		//         continue;
-		//     }
-		// }
-
+		
 		return $this->variables;
 	}
 

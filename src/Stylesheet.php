@@ -20,6 +20,8 @@ class Stylesheet {
 
 	public string $defaultTheme = 'light';
 
+	public ?DynamicRules $dynamicRules = null;
+
 	private array $enqueued;
 	private array $stylesheets = [];
 
@@ -47,19 +49,19 @@ class Stylesheet {
 	public readonly bool $updated;
 	private ?string $savePath = null;
 
-	private readonly string $rootDir;
+	// private readonly string $rootDir;
 
 	public function __toString(): string {
 		return $this->styles ?? '';
 	}
 
 	public function __construct(
-		string $rootDir,
+		// string $rootDir,
 		public ?ColorPalette $palette = null,
 		public bool $force = false,
 		public bool | string $reset = true
 	) {
-		$this->rootDir = Str::filepath( $rootDir );
+		// $this->rootDir = Str::filepath( $rootDir );
 		$this->resetRules();
 	}
 
@@ -85,7 +87,10 @@ class Stylesheet {
 	public function addStylesheets( string...$paths ): void {
 
 		foreach ( $paths as $path ) {
-			$this->stylesheets['file:' . File::getFileName( $path ) . ':' . crc32( $path )] = Str::filepath( $path );
+			$type =  ( \str_ends_with( $path, '.css' ) ) ? 'file' : 'dir';
+			
+		
+			$this->stylesheets["$type:" . File::getFileName( $path ) . ':' . crc32( $path )] = Str::filepath( $path );
 		}
 
 	}
@@ -194,15 +199,17 @@ class Stylesheet {
 		}
 
 		$this->selectors = $elements;
-		$dynamic         = new DynamicRules(
-			$this->rootDir,
-			[
-				'var/cache/latte/',
-			]
-		);
-		$this->selectors = array_merge( $this->selectors, $dynamic->variables );
+		// $dynamic         = new DynamicRules(
+		// 	$this->rootDir,
+		// 	[
+		// 		'var/cache/latte/',
+		// 	]
+		// );
+	//  \dump( $this->selectors );
+		if ( isset( $this->dynamicRules )){
+			$this->selectors = array_merge( $this->selectors, $this->dynamicRules->variables );
+		}
 		// \var_dump($this->selectors);
-		// dd( $this->elements );
 	}
 
 	private function matchMedia( string $parse ): void {
@@ -590,8 +597,8 @@ class Stylesheet {
 		foreach ( $this->enqueued as $index => $stylesheet ) {
 
 			$key = trim( str_replace(
-				[$this->rootDir, '.css', DIRECTORY_SEPARATOR],
-				['', '', ':'],
+				['.css', DIRECTORY_SEPARATOR],
+				['', ':'],
 				$stylesheet
 			), ':' );
 
