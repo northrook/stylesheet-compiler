@@ -25,8 +25,8 @@ class ColorPalette {
 				200 => 9,
 				300 => 15,
 				400 => 35,
-				500 => 85,
-				600 => 90,
+				500 => 45,
+				600 => 85,
 				700 => 93,
 				800 => 96,
 				900 => 99,
@@ -90,7 +90,6 @@ class ColorPalette {
 				 * @var Color $color
 				 *  */
 				$color = $this->palette[$name];
-				// dump( $name, $color );
 
 				if ( ! $color ) {
 					continue;

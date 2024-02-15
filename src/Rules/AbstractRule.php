@@ -65,18 +65,19 @@ abstract class AbstractRule {
 	}
 
 	private function escapeRuleString( string $class ): string {
-		
-		$class       = \str_ireplace( '#', '\#', $class );
-		$class       = Str::replace( ':', '\:', $class, 1 );
 
-		return $class;
+		$class = Str::split( $class, ':' );
+
+		$class[0] = str_ireplace( ':', '\:', $class[0] );
+		if ( isset( $class[1] ) ) {
+			$class[1] = str_ireplace( ['#', '.'], ['\#', '\.'], $class[1] );
+		}
+
+		return \implode( '\:', $class );
 		
 	}
 
 	protected function rules( string $class, array $rules ): void {
-
-		// $class       = \str_ireplace( '#', '\#', $class );
-		// $class       = Str::replace( ':', '\:', $class, 1 );
 
 		$class = $this->escapeRuleString( $class );
 		$this->rules = array_merge_recursive( $this->rules, [$class => $rules] );
@@ -86,8 +87,9 @@ abstract class AbstractRule {
 	}
 
 	protected function has( $class ): bool | string {
-		$has= Arr::has( $this->parse, $class, 'startsWith' );
-		return is_string( $has ) ?  $this->escapeRuleString($has) : $has;
+		$has = Arr::has( $this->parse, $class, 'startsWith' );
+
+		return is_string( $has ) ? $this->escapeRuleString( $has ) : $has;
 	}
 
 	protected function value( string $class ) {
@@ -100,7 +102,7 @@ abstract class AbstractRule {
 
 		foreach ( DynamicRules::SIZE as $key => $value ) {
 			if ( str_starts_with( $key, $size ) ) {
-				$this->value = ( in_array($key, ['null', 'auto', 'full'], true) ) ? $value : "var(--{$key}, {$value})";
+				$this->value = ( in_array( $key, ['null', 'auto', 'full'], true ) ) ? $value : "var(--{$key}, {$value})";
 				break;
 			}
 		}
@@ -122,11 +124,14 @@ abstract class AbstractRule {
 
 		if ( ! $this->value ) {
 			$this->bail = true;
+
 			return null;
 		}
 
 		if ( false === str_starts_with( $this->value ?? '', '#' ) ) {
-			if (Str::isNumeric($this->value)) $this->value = "baseline-{$this->value}";
+			if ( Str::isNumeric( $this->value ) ) {
+				$this->value = "baseline-{$this->value}";
+			}
 
 			$this->value = "hsla(var(--{$this->value}))";
 		}

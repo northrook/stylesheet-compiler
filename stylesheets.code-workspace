@@ -4,5 +4,15 @@
 			"path": "."
 		}
 	],
-	"settings": {}
+	"settings": {
+		"workbench.colorCustomizations": {
+			"statusBar.foreground": "#ffffff",
+			"statusBar.background": "#cc2f38"
+		},
+		
+	"material-icon-theme.files.associations": {
+		"src/Stylesheet.php": "../../icons/stylesheet-document",
+	}
+	}
 }
+

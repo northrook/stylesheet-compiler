@@ -14,8 +14,6 @@ use UnexpectedValueException;
 
 final class DynamicRules {
 
-	// public const
-
 	public const SIZE = [
 		'auto'   => 'auto',
 		'null'   => '0',
@@ -34,6 +32,7 @@ final class DynamicRules {
 		'w'     => Rules\Width::class,
 		'gap'   => Rules\Gap::class,
 		'flex'  => Rules\Flex::class,
+		'font'  => Rules\Font::class,
 		// 'grid' => Rules\Grid::class,
 		'm'     => Rules\Margin::class,
 		'p'     => Rules\Padding::class,

@@ -35,8 +35,10 @@ class Flex extends AbstractRule {
 
 		} else {
 			if ( $this->has( 'reverse' ) ) {
-				$this->rules['.flex.reverse'] = ['flex-direction' => 'row-reverse'];
-			} 
+				$this->rules['.flex.col.reverse'] = ['flex-direction' => 'column-reverse'];
+			} {
+				$this->rules['.flex.col'] = ['flex-direction' => 'column'];
+			}
 		}
 
 		if ( $this->has( 'align-top' ) ) {

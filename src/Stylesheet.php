@@ -199,17 +199,10 @@ class Stylesheet {
 		}
 
 		$this->selectors = $elements;
-		// $dynamic         = new DynamicRules(
-		// 	$this->rootDir,
-		// 	[
-		// 		'var/cache/latte/',
-		// 	]
-		// );
-	//  \dump( $this->selectors );
+		
 		if ( isset( $this->dynamicRules )){
 			$this->selectors = array_merge( $this->selectors, $this->dynamicRules->variables );
 		}
-		// \var_dump($this->selectors);
 	}
 
 	private function matchMedia( string $parse ): void {

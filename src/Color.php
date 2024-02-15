@@ -35,9 +35,12 @@ class Color {
 			$this->color  = substr( $this->color, 1 );
 		}
 
-		if ( str_starts_with( $this->color, 'hsl' ) ) {
+		if ( str_starts_with( $this->color, 'hsl' )
+			|| substr_count( $this->color, ',' ) >= 2
+			|| substr_count( $this->color, ' ' ) >= 2
+		) {
 			$this->format = 'hsl';
-			$this->hsl = new HSL( $this->color );
+			$this->hsl    = new HSL( $this->color );
 		}
 
 	}
