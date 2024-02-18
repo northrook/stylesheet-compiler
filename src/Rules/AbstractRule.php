@@ -64,17 +64,34 @@ abstract class AbstractRule {
 		$this->value( $this->class );
 	}
 
+
 	private function escapeRuleString( string $class ): string {
 
-		$class = Str::split( $class, ':' );
+		$class = \explode( ':', $class );
 
-		$class[0] = str_ireplace( ':', '\:', $class[0] );
-		if ( isset( $class[1] ) ) {
-			$class[1] = str_ireplace( ['#', '.'], ['\#', '\.'], $class[1] );
+		foreach ( $class as $key => $value ) {
+
+			//: Skip first and empty
+			if ( 0 === $key || ! $value ) {
+				continue;
+			}
+
+			//: Always escape hex colors and decimals
+			$value = str_ireplace( ['#', '.'], ['\#', '\.'], $value );
+
+			//: Only escape custom selectors, skip native
+			if ( Str::startsWith( $value, ['not', 'has', 'hover', 'focus'] ) ) {
+				$value = ':' . $value;
+			} else {
+				$value = '\:' . $value;
+			}
+
+			$class[$key] = $value;
+
 		}
 
-		return \implode( '\:', $class );
-		
+		return implode( '', $class );
+
 	}
 
 	protected function rules( string $class, array $rules ): void {

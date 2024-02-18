@@ -26,22 +26,19 @@ final class DynamicRules {
 
 	/** Classes run their own logic, arrays are parsed as `.class { key => value }` */
 	private const RULES = [
-		'disabled' => [
-			'.disabled' => [
-				'pointer-events' => 'none',
-			],
-		],
+		'disabled' => ['.disabled' => ['pointer-events' => 'none']],
 		'sr'       => Rules\Accessibility::class,
 		'flow'     => Rules\Flow::class,
+		'divide'   => Rules\Divide::class,
 		'h'        => Rules\Height::class,
 		'w'        => Rules\Width::class,
 		'gap'      => Rules\Gap::class,
 		'flex'     => Rules\Flex::class,
-		'font'     => Rules\Font::class,
 		// 'grid' => Rules\Grid::class,
 		'm'        => Rules\Margin::class,
 		'p'        => Rules\Padding::class,
 		'r'        => Rules\Radius::class,
+		'font'     => Rules\Font::class,
 		'color'    => Rules\Color::class,
 		'bg'       => Rules\Background::class,
 	];
