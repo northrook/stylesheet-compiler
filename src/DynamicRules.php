@@ -3,7 +3,6 @@
 namespace Northrook\Stylesheets;
 
 use Northrook\Stylesheets\Rules\AbstractRule;
-
 use Northrook\Support\Arr;
 use Northrook\Support\File;
 use Northrook\Support\Regex;
@@ -27,18 +26,24 @@ final class DynamicRules {
 
 	/** Classes run their own logic, arrays are parsed as `.class { key => value }` */
 	private const RULES = [
-		'flow'  => Rules\Flow::class,
-		'h'     => Rules\Height::class,
-		'w'     => Rules\Width::class,
-		'gap'   => Rules\Gap::class,
-		'flex'  => Rules\Flex::class,
-		'font'  => Rules\Font::class,
+		'disabled' => [
+			'.disabled' => [
+				'pointer-events' => 'none',
+			],
+		],
+		'sr'       => Rules\Accessibility::class,
+		'flow'     => Rules\Flow::class,
+		'h'        => Rules\Height::class,
+		'w'        => Rules\Width::class,
+		'gap'      => Rules\Gap::class,
+		'flex'     => Rules\Flex::class,
+		'font'     => Rules\Font::class,
 		// 'grid' => Rules\Grid::class,
-		'm'     => Rules\Margin::class,
-		'p'     => Rules\Padding::class,
-		'r'     => Rules\Radius::class,
-		'color' => Rules\Color::class,
-		'bg'    => Rules\Background::class,
+		'm'        => Rules\Margin::class,
+		'p'        => Rules\Padding::class,
+		'r'        => Rules\Radius::class,
+		'color'    => Rules\Color::class,
+		'bg'       => Rules\Background::class,
 	];
 
 	private array $matchRules               = [];
@@ -69,7 +74,7 @@ final class DynamicRules {
 
 		$this->root      = [':root' => $root];
 		$this->variables = $this->rule;
-		
+
 	}
 
 	private function parseTemplateRules(): void {
