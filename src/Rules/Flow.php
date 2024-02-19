@@ -14,7 +14,7 @@ namespace Northrook\Stylesheets\Rules;
  */
 class Flow extends AbstractRule {
 
-	protected const TRIGGER = 'divide';
+	protected const TRIGGER = 'flow';
 
 	protected function construct() {
 
