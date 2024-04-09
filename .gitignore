@@ -7,7 +7,7 @@
 # Composer
 /vendor/
 /composer.phar
-composer.lock
+/composer.lock
 
 # Build data
 /build/
@@ -15,5 +15,5 @@ composer.lock
 /public/
 /var/
 /templates/
-*.php/
-*.css/
+/*.php
+/*.css
