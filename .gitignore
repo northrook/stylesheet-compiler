@@ -1,9 +1,19 @@
+# PHPStorm
 /.idea/
+
+# VSCodeish
+*.code-workspace
+
+# Composer
 /vendor/
-/public/
+/composer.phar
+composer.lock
+
+# Build data
+/build/
 /assets/
+/public/
 /var/
-index.php
-stylesheet.code-workspace
-src/reset.css
 /templates/
+*.php/
+*.css/
