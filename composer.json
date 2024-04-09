@@ -14,7 +14,8 @@
 			"Northrook\\Stylesheets\\": "src/"
 		}
 	},
-	"minimum-stability": "stable",
+	"minimum-stability": "dev",
+	"prefer-stable": true,
 	"require": {
 		"php": ">=8.1",
 		"northrook/support": "dev-main"
