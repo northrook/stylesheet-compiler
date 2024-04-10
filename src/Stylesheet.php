@@ -55,6 +55,7 @@ class Stylesheet
 
     public function __construct(
         Path | string $rootDir,
+        ?ColorPalette $palette = null,
         array         $templateDirectories = [],
         array         $options = [],
     ) {
@@ -62,7 +63,7 @@ class Stylesheet
         $this->rootDir = $rootDir instanceof Path ? $rootDir : new Path( $rootDir );
         $this->options = array_merge( $this->options, $options );
 
-        $this->palette      = $this->options[ 'colorPalette' ] ? new ColorPalette() : null;
+        $this->palette      = $this->options[ 'colorPalette' ] ? $palette ?? new ColorPalette() : null;
         $this->dynamicRules = $this->options[ 'dynamicRules' ] ? new DynamicRules(
             $this->rootDir,
             $templateDirectories,
