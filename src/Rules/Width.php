@@ -4,21 +4,16 @@ namespace Northrook\Stylesheets\Rules;
 
 use Northrook\Support\Str;
 
-class Width extends AbstractRule {
+class Width extends AbstractRule
+{
+    protected const TRIGGER = 'w';
 
-	protected const TRIGGER = 'w';
-
-	private ?string $height  = null;
-
-	protected function construct() {
-
-		$this->height = match ( Str::before( $this->class, ':' ) ) {
-			'w-min' => 'min-width',
-			'w-max' => 'max-width',
-			default => 'width',
-		};
-
-		$this->rules( ".{$this->class}", [$this->height => $this->value] );
-	}
+    protected function rules( ?string $class = null ) : array {
+        return [
+            'w'     => [ 'width' => $this->value ?? 'var(--width)' ],
+            'w-min' => [ 'min-width' => $this->value ?? 'var(--width)' ],
+            'w-max' => [ 'max-width' => $this->value ?? 'var(--width)' ],
+        ];
+    }
 
 }

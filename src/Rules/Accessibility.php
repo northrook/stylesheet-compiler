@@ -11,11 +11,11 @@ class Accessibility extends AbstractRule {
 
 	protected const TRIGGER = 'sr';
 
-	protected function construct() {
+	protected function rules( ?string $class = null ) : array {
 
 		if ( $this->has( 'sr-only' ) ) {
-			$this->rules(
-				".{$this->class}",
+			$this->rule(
+				".$class",
 				[
 					'position'     => 'absolute',
 					'width'        => '1px',
@@ -29,5 +29,7 @@ class Accessibility extends AbstractRule {
 				]
 			);
 		}
+
+        return [];
 	}
 }

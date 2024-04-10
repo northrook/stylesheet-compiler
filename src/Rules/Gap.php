@@ -8,17 +8,11 @@ class Gap extends AbstractRule {
 
 	protected const TRIGGER = 'gap';
 
-	private ?string $gap = null;
-
-	protected function construct() {
-
-		$this->gap = match ( Str::before( $this->class, ':' ) ) {
-			'gap-x' => 'column-gap',
-			'gap-y' => 'row-gap',
-			default => 'gap',
-		};
-
-		$this->rules( ".{$this->class}", [$this->gap => $this->value ?? 'var(--base)'] );
-
-	}
+    protected function rules( ?string $class = null ) : array {
+        return [
+            'gap'     => [ 'gap' => $this->value ?? 'var(--gap)' ],
+            'gap-x' => [ 'column-gap' => $this->value ?? 'var(--gap)' ],
+            'gap-y' => [ 'row-gap' => $this->value ?? 'var(--gap)' ],
+        ];
+    }
 }

@@ -8,17 +8,11 @@ class Height extends AbstractRule {
 
 	protected const TRIGGER = 'h';
 
-	private ?string $height  = null;
-
-	protected function construct() {
-
-		$this->height = match ( Str::before( $this->class, ':' ) ) {
-			'h-min' => 'min-height',
-			'h-max' => 'max-height',
-			default => 'height',
-		};
-
-		$this->rules( ".{$this->class}", [$this->height => $this->value] );
-	}
-
+    protected function rules( ?string $class = null ) : array {
+        return [
+            'h'     => [ 'height' => $this->value ?? 'var(--height)' ],
+            'h-min' => [ 'min-height' => $this->value ?? 'var(--height)' ],
+            'h-max' => [ 'max-height' => $this->value ?? 'var(--height)' ],
+        ];
+    }
 }

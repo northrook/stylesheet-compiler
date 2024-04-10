@@ -7,162 +7,205 @@ use Northrook\Support\Arr;
 use Northrook\Support\File;
 use Northrook\Support\Regex;
 use Northrook\Support\Str;
+use Northrook\Types\Path;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use UnexpectedValueException;
 
-final class DynamicRules {
+final class DynamicRules
+{
 
-	public const SIZE = [
-		'auto'   => 'auto',
-		'null'   => '0',
-		'tiny'   => '.125rem',
-		'small'  => '.25rem',
-		'base'   => '1rem',
-		'medium' => '1.5rem',
-		'large'  => '2rem',
-		'full'   => '100%',
-	];
+    public const SIZE = [
+        'auto'   => 'auto',
+        'null'   => '0',
+        'tiny'   => '.125rem',
+        'small'  => '.25rem',
+        'base'   => '1rem',
+        'medium' => '1.5rem',
+        'large'  => '2rem',
+        'full'   => '100%',
+    ];
 
-	/** Classes run their own logic, arrays are parsed as `.class { key => value }` */
-	private const RULES = [
-		'disabled' => ['.disabled' => ['pointer-events' => 'none']],
-		'sr'       => Rules\Accessibility::class,
-		'flow'     => Rules\Flow::class,
-		'divide'   => Rules\Divide::class,
-		'h'        => Rules\Height::class,
-		'w'        => Rules\Width::class,
-		'gap'      => Rules\Gap::class,
-		'flex'     => Rules\Flex::class,
-		// 'grid' => Rules\Grid::class,
-		'm'        => Rules\Margin::class,
-		'p'        => Rules\Padding::class,
-		'r'        => Rules\Radius::class,
-		'font'     => Rules\Font::class,
-		'color'    => Rules\Color::class,
-		'bg'       => Rules\Background::class,
-	];
+    /** Classes run their own logic, arrays are parsed as `.class { key => value }` */
+    private const RULES = [
+        'disabled' => [ '.disabled' => [ 'pointer-events' => 'none' ] ],
+        'sr'       => Rules\Accessibility::class,
+        'flow'     => Rules\Flow::class,
+        'divide'   => Rules\Divide::class,
+        'h'        => Rules\Height::class,
+        'w'        => Rules\Width::class,
+        'gap'      => Rules\Gap::class,
+        'flex'     => Rules\Flex::class,
+        // 'grid' => Rules\Grid::class,
+        'm'        => Rules\Margin::class,
+        'p'        => Rules\Padding::class,
+        'r'        => Rules\Radius::class,
+        'font'     => Rules\Font::class,
+        'color'    => Rules\Color::class,
+        'bg'       => Rules\Background::class,
+    ];
 
-	private array $matchRules               = [];
-	private static array $directoriesToScan = [];
+    private array $directoriesToScan = [];
+    /** @var array All rules found in every template file. */
+    private array $templateRules = [];
+    private array $rule          = [];
+    /** @var array The dynamic variables. */
+    public readonly array $root;
+    public readonly array $variables;
 
-	/** @var array The dynamic variables. */
-	public readonly array $root;
-	public readonly array $variables;
+    public function __construct(
+        private readonly Path $rootDir,
+        array                 $directories = [],
+    ) {
 
-	/** @var array All rules found in every template file. */
-	private array $templateRules = [];
-	private array $rule          = [];
+        $this->addTemplateDirectories( ... $directories );
 
-	public function __construct(
-		private readonly string $rootDir,
-		array $directories = [],
-	) {
-		$this->scanTemplateFiles( $directories );
-		$this->parseTemplateRules();
+        $root = [];
+        foreach ( $this::SIZE as $key => $value ) {
+            if ( 'null' === $key || 'auto' === $key ) {
+                continue;
+            }
+            $root[ "--$key" ] = $value;
+        }
 
-		$root = [];
-		foreach ( $this::SIZE as $key => $value ) {
-			if ( 'null' === $key || 'auto' === $key ) {
-				continue;
-			}
-			$root["--{$key}"] = $value;
-		}
+        $this->root = $root;
+    }
 
-		$this->root      = [':root' => $root];
-		$this->variables = $this->rule;
+    public function parse( ?string ...$templates ) : self {
 
-	}
+        $this->addTemplateDirectories( ... $templates );
 
-	private function parseTemplateRules(): void {
+        $this->scanTemplateFiles()->parseTemplateRules();
 
-		foreach ( $this->templateRules as $selectors ) {
+        $this->variables = $this->rule;
+        return $this;
+    }
 
-			// $selectors should always be an array
-			if ( ! is_array( $selectors ) ) {
-				continue;
-			}
+    private function scanTemplateFiles() : self {
 
-			$match = array_map(
-				callback: static fn( $selector ) => Str::before( $selector, [':', '-'] ),
-				array:$selectors
-			);
 
-			$rules = Arr::searchKeys( $this::RULES, $match );
+        $files = [];
+        foreach ( $this->directoriesToScan as $directory ) {
 
-			if ( ! $rules ) {
-				continue;
-			}
+            $match = false;
 
-			foreach ( $rules as $rule ) {
-				if ( is_string( $rule ) && class_exists( $rule ) && is_subclass_of( $rule, AbstractRule::class ) ) {
-					$rule = $rule::build( $selectors );
-				}
-				$this->rule = array_merge( $this->rule, $rule );
-			}
-		}
+            if ( str_contains( $directory, '*' ) ) {
+                $match     = trim( strrchr( $directory, '*' ), '*' );
+                $directory = strstr( $directory, '*', true );
+            }
 
-	}
+            $path = Str::filepath( $directory, $this->rootDir );
 
-	private function scanTemplateFiles( array $directories ): void {
+            if ( is_file( $path ) ) {
+                $files[] = File::getContents( $path );
+                continue;
+            }
 
-		$this::addTemplateDirectories( $directories );
+            try {
+                $iterator = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $path ) );
+            }
+            catch ( UnexpectedValueException ) {
+                continue;
+            }
 
-		$files = [];
-		foreach ( $this::$directoriesToScan as $directory ) {
+            foreach ( $iterator as $file ) {
+                if ( $file->isDir()
+                     || str_ends_with( $file->getFilename(), '.lock' )
+                     || ( $match && !Str::contains( $file->getFilename(), $match ) ) ) {
+                    continue;
+                }
+                $files[] = Str::squish( File::getContents( $file->getPathname() ) );
+            }
+        }
 
-			$match = false;
+        foreach ( $files as $template ) {
 
-			if ( \str_contains( $directory, '*' ) ) {
-				$match     = trim( strrchr( $directory, '*' ), '*' );
-				$directory = strstr( $directory, '*', true );
-			}
+            // Remove comments
+            $template = preg_replace(
+                [
+                    '/\/\*\*.*?\*\//s', // PHP comments
+                    '/\/\/.*?\v/m',     // Single line comments
+                    '/<!--.*?-->/s',    // HTML comments
+                    '/{\*.*?\*}/s',     // Latte comments
+                    '/{#.*?#}/s',       // Twig comments
+                    '/{{--.*?--}}/s',   // Blade comments
+                ], '', $template,
+            );
 
-			$path = Str::filepath( $directory, $this->rootDir );
+            // Find all class assignments
+            $classes = Regex::matchNamedGroups(
+                '/class="(?<class>.*?)"/s',
+                $template,
+            );
+            foreach ( $classes as $get ) {
+                $string = $get->class;
 
-			if ( is_file( $path ) ) {
-				$files[] = File::getContents( $path );
-				continue;
-			}
+                // Remove single quited substrings
+                $string = preg_replace( '/\'.*?\'/s', ' ', $string );
 
-			try {
-				$iterator = new RecursiveIteratorIterator( new RecursiveDirectoryIterator( $path ) );
-			} catch ( UnexpectedValueException ) {
-				continue;
-			}
+                $this->templateRules[] = Arr::explode( ' ', $string, true );
+            }
+        }
 
-			foreach ( $iterator as $file ) {
-				if ( $file->isDir()
-					|| str_ends_with( $file->getFilename(), '.lock' )
-					|| ( $match && ! Str::contains( $file->getFilename(), $match ) ) ) {
-					continue;
-				}
-				$files[] = Str::squish( File::getContents( $file->getPathname() ) );
-			}
-		}
+        return $this;
+    }
 
-		foreach ( $files as $template ) {
-			$classes = Regex::matchNamedGroups(
-				'/class="(?<class>.*?)"/s',
-				$template
-			);
-			foreach ( $classes as $get ) {
-				$string                = \preg_replace( '/\'.*?\'/s', ' ', $get->class );
-				$selectors             = Arr::explode( ' ', $string, true );
-				$this->templateRules[] = $selectors;
-			}
-		}
-	}
+    private function parseTemplateRules() : void {
 
-	/** Add directories to scan for template files.
-	 * * The scanned directories will be searched recursively.
-	 *
-	 * @param array $directories
-	 */
-	public static function addTemplateDirectories( array $directories ): void {
-		self::$directoriesToScan = array_merge(
-			self::$directoriesToScan,
-			$directories
-		);
-	}
+        $inventory = [];
+        foreach ( $this->templateRules as $selectors ) {
+
+            // $selectors should always be an array
+            if ( !is_array( $selectors ) ) {
+                continue;
+            }
+
+            // Loop trough each selector provided
+            foreach ( $selectors as $selector ) {
+                $matchRule  = Str::before( $selector, [ ':', '-' ] );
+                $foundRules = Arr::searchKeys( $this::RULES, $matchRule );
+                foreach ( $foundRules as $rule ) {
+                    if (
+                        is_string( $rule ) &&
+                        class_exists( $rule ) &&
+                        is_subclass_of( $rule, AbstractRule::class )
+                    ) {
+                        $inventory += $rule::build( $selectors );
+                    }
+
+                }
+            }
+        }
+
+        foreach ( $inventory as $key => $value ) {
+
+            unset( $inventory[ $key ] );
+
+            $key = Str::replaceEach(
+                [
+                    ':' => '\:',
+                    '.' => '\.',
+                ],
+                $key,
+            );
+
+            $inventory[ ".$key" ] = $value;
+
+        }
+
+        $this->rule = $inventory;
+    }
+
+
+    /** Add directories to scan for template files.
+     * * The scanned directories will be searched recursively.
+     *
+     * @param array  $path
+     */
+    public function addTemplateDirectories( string ...$path ) : void {
+
+        foreach ( $path as $template ) {
+            $this->directoriesToScan[] = Path::normalize( $template );
+        }
+    }
 }

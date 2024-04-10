@@ -1,159 +1,150 @@
 <?php
 
+declare( strict_types = 1 );
+
 namespace Northrook\Stylesheets\Rules;
 
 use Northrook\Stylesheets\DynamicRules;
-use Northrook\Stylesheets\Rules\Types\Value;
 use Northrook\Support\Arr;
 use Northrook\Support\Str;
 
-abstract class AbstractRule {
+/**
+ * Breaks off any passed variable, and strips hyphens for loose comparison.
+ *
+ * @param string  $class
+ *
+ * @return string
+ */
+function strip( string $class ) : string {
 
-	protected const TRIGGER = null;
+    // Strip any encoded variables
+    $class = explode( ':', $class )[ 0 ] ?? $class;
 
-	public bool $bail = false;
+    // Strip any hyphens
+    $class = str_replace( '-', '', $class );
 
-	protected array $parse;
-	protected array $rules = [];
+    // Return lowercase
+    return strtolower( $class );
+}
 
-	protected ?string $class = null;
-	protected ?string $value = null;
+abstract class AbstractRule
+{
 
-	public static function build( array $classes = [] ): array {
+    protected const TRIGGER = null;
 
-		$build = new static( $classes );
+    protected array   $rules = [];
+    protected ?string $class = null;
+    protected ?string $value = null;
 
-		return $build->rules;
-	}
+    private function __construct(
+        public readonly array $properties,
+    ) {
+        if ( null === static::TRIGGER ) {
+            trigger_error(
+                $this::class . '::TRIGGER is not defined',
+                E_USER_ERROR,
+            );
+        }
 
-	private function __construct(
-		array $array
-	) {
-		$this->parse( $array );
+        // Loop through properties, they are passed as a list of classes
+        foreach ( $properties as $class ) {
 
-		if ( ! $this->class ) {
-			return;
-		}
+            // Skip unrelated classes
+            if ( !str_starts_with( $class, (string) $this::TRIGGER ) ) {
+                continue;
+            }
 
-		$this->construct();
-		if ( $this->bail ) {
-			return;
-		}
-	}
+            // Parse any encoded variables - `w-1:small` -> `w-1`, storing `small` as the value
+            $this->variable( $class );
 
-	abstract protected function construct();
+            // Loop through rules provided in extending class::rules()
+            foreach ( $this->rules( $class ) as $rule => $value ) {
+                // Strip and compare classnames, ignoring encoded variables
+                if ( strip( $class ) === strip( $rule ) ) {
+                    // Append to the rule array
+                    $this->rules[ $class ] = $value;
+                }
+            }
+        }
+    }
 
-	private function parse( array $array ): void {
+    public static function build( array $classes = [] ) : array {
+        return ( new static( $classes ) )->rules;
+    }
 
-		if ( null === static::TRIGGER ) {
-			throw new \Exception( 'TRIGGER is not defined' );
-		}
-
-		$this->parse = $array;
-
-		foreach ( $this->parse as $value ) {
-			if ( str_starts_with( $value, (string) $this::TRIGGER ) ) {
-				$this->class = $value;
-			}
-		}
-
-		if ( ! $this->class ) {
-			throw new \Exception( $this::class . ' cannot find ' . static::TRIGGER . ': Class is not defined.' );
-		}
-
-		$this->value( $this->class );
-	}
+    abstract protected function rules( ?string $class = null ) : array;
 
 
-	private function escapeRuleString( string $class ): string {
+    /**
+     * Manually add a rule.
+     *
+     * @param string  $class
+     * @param array   $rules
+     *
+     * @return void
+     */
+    protected function rule( string $class, array $rules ) : void {
+        $this->rules = array_merge_recursive( $this->rules, [ $class => $rules ] );
+    }
 
-		$class = \explode( ':', $class );
+    /**
+     * Check if a rule exists in {@see self::properties}.
+     *
+     * @param $class
+     *
+     * @return bool|string
+     */
+    final public function has( $class ) : bool | string {
+        return Arr::has( $this->properties, $class, 'startsWith' );
+    }
 
-		foreach ( $class as $key => $value ) {
 
-			//: Skip first and empty
-			if ( 0 === $key || ! $value ) {
-				continue;
-			}
+    final protected function variable( string $class ) : void {
 
-			//: Always escape hex colors and decimals
-			$value = str_ireplace( ['#', '.'], ['\#', '\.'], $value );
+        $size = Str::after( $class, ':', strict : true );
 
-			//: Only escape custom selectors, skip native
-			if ( Str::startsWith( $value, ['not', 'has', 'hover', 'focus'] ) ) {
-				$value = ':' . $value;
-			} else {
-				$value = '\:' . $value;
-			}
+        if ( !$size ) {
+            return;
+        }
 
-			$class[$key] = $value;
+        foreach ( DynamicRules::SIZE as $key => $value ) {
+            if ( str_starts_with( $key, $size ) ) {
+                $this->value =
+                    ( in_array( $key, [ 'null', 'auto', 'full' ], true ) ) ? $value : "var(--$key, $value)";
+                break;
+            }
+        }
 
-		}
+        if ( !$this->value ) {
+            $this->value = $size;
+        }
 
-		return implode( '', $class );
+    }
 
-	}
+    /** Returns the `$value` property if it exists
+     *
+     * * If `$value` does not start with a `#`, it will be converted to `var(--$value)`
+     * * If `$value` starts with a `#`, it will be returned as-is
+     *
+     * @return null|string
+     * */
+    protected function color() : ?string {
 
-	protected function rules( string $class, array $rules ): void {
+        if ( null === $this->value ) {
+            return $this->value;
+        }
 
-		$class = $this->escapeRuleString( $class );
-		$this->rules = array_merge_recursive( $this->rules, [$class => $rules] );
-		if ( static::TRIGGER === 'flow') {
-			// \var_dump('classdump:', $class, $rules, $this->rules);
-		}
-	}
+        if ( false === str_starts_with( $this->value, '#' ) ) {
+            if ( Str::isNumeric( $this->value ) ) {
+                $this->value = "--baseline-$this->value";
+            }
 
-	protected function has( $class ): bool | string {
-		$has = Arr::has( $this->parse, $class, 'startsWith' );
+            if ( str_starts_with( $this->value, '--' ) ) {
+                $this->value = "hsla(var($this->value))";
+            }
+        }
 
-		return is_string( $has ) ? $this->escapeRuleString( $has ) : $has;
-	}
-
-	protected function value( string $class ) {
-
-		$size = Str::after( $class, ':', strict: true );
-
-		if ( ! $size ) {
-			return;
-		}
-
-		foreach ( DynamicRules::SIZE as $key => $value ) {
-			if ( str_starts_with( $key, $size ) ) {
-				$this->value = ( in_array( $key, ['null', 'auto', 'full'], true ) ) ? $value : "var(--{$key}, {$value})";
-				break;
-			}
-		}
-
-		if ( ! $this->value ) {
-			$this->value = $size;
-		}
-
-	}
-
-	/** Returns the `$value` property if it exists
-	 * 
-	 * * If `$value` does not start with a `#`, it will be converted to `var(--$value)`
-	 * * If `$value` starts with a `#`, it will be returned as-is
-	 * 
-	 * @return null|string
-	 * */
-	protected function color(): ?string {
-
-		if ( ! $this->value ) {
-			$this->bail = true;
-
-			return null;
-		}
-
-		if ( false === str_starts_with( $this->value ?? '', '#' ) ) {
-			if ( Str::isNumeric( $this->value ) ) {
-				$this->value = "baseline-{$this->value}";
-			}
-
-			$this->value = "hsla(var(--{$this->value}))";
-		}
-
-		return $this->value;
-	}
+        return $this->value;
+    }
 
 }

@@ -4,32 +4,25 @@ namespace Northrook\Stylesheets\Rules;
 
 use Northrook\Support\Str;
 
-class Padding extends AbstractRule {
+class Padding extends AbstractRule
+{
+    protected const TRIGGER = 'p';
 
-	protected const TRIGGER = 'p';
-
-	private ?string $padding = null;
-
-	protected function construct() {
-
-		$type = Str::before( $this->class, ':' ) ;
-		
-		match ($type) {
-			'p-x' => $this->rules( ".{$this->class}", [
-				'padding-left'  => $this->value ?? 'var(--margin)',
-				'padding-right' => $this->value ?? 'var(--margin)']
-			),
-			'p-y' => $this->rules( ".{$this->class}", [
-				'padding-top'    => $this->value ?? 'var(--margin)',
-				'padding-bottom' => $this->value ?? 'var(--margin)']
-			),
-			'p-t' => $this->rules( ".{$this->class}",['padding-top' => $this->value ?? 'var(--margin)'] ),
-			'p-r' => $this->rules( ".{$this->class}",['padding-right' => $this->value ?? 'var(--margin)'] ),
-			'p-b' => $this->rules( ".{$this->class}",['padding-bottom' => $this->value ?? 'var(--margin)'] ),
-			'p-l' => $this->rules( ".{$this->class}",['padding-left' => $this->value ?? 'var(--margin)'] ),
-			default => $this->rules( ".{$this->class}", ['padding' => $this->value ?? 'var(--margin)'] ),
-		};
-
-	}
-
+    protected function rules( ?string $class = null ) : array {
+        return [
+            'p'   => [ 'padding' => $this->value ?? 'var(--padding)' ],
+            'p-x' => [
+                'padding-left'  => $this->value ?? 'var(--padding)',
+                'padding-right' => $this->value ?? 'var(--padding)',
+            ],
+            'p-y' => [
+                'padding-top'    => $this->value ?? 'var(--padding)',
+                'padding-bottom' => $this->value ?? 'var(--padding)',
+            ],
+            'p-t' => [ 'padding-top' => $this->value ?? 'var(--padding)' ],
+            'p-r' => [ 'padding-right' => $this->value ?? 'var(--padding)' ],
+            'p-b' => [ 'padding-bottom' => $this->value ?? 'var(--padding)' ],
+            'p-l' => [ 'padding-left' => $this->value ?? 'var(--padding)' ],
+        ];
+    }
 }

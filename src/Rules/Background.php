@@ -2,11 +2,14 @@
 
 namespace Northrook\Stylesheets\Rules;
 
-class Background extends AbstractRule {
+class Background extends AbstractRule
+{
 
-	protected const TRIGGER = 'bg';
+    protected const TRIGGER = 'bg';
 
-	protected function construct() {
-		$this->rules( ".{$this->class}", ['background' => $this->color()] );
-	}
+    protected function rules( ?string $class = null ) : array {
+        $this->rule( $class, [ 'background' => $this->color() ] );
+
+        return [];
+    }
 }

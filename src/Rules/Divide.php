@@ -19,7 +19,11 @@ class Divide extends AbstractRule {
 
 	protected const TRIGGER = 'divide';
 
-	protected function construct() {
+    protected function rules( ?string $class = null ) : array {
+        return [];
+    }
+
+	// protected function construct() {
 
 		// if ( $this->value ) {
 		// 	$this->rules( ".{$this->class}", ['--flow-gap' => $this->value] );
@@ -32,5 +36,5 @@ class Divide extends AbstractRule {
 		// }
 		
 		// $this->rules( ".{$this->class} > * + *", $rules );
-	}
+	// }
 }

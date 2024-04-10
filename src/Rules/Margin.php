@@ -4,29 +4,28 @@ namespace Northrook\Stylesheets\Rules;
 
 use Northrook\Support\Str;
 
-class Margin extends AbstractRule {
+class Margin extends AbstractRule
+{
+    protected const TRIGGER = 'm';
 
-	protected const TRIGGER = 'm';
+    protected function rules( ?string $class = null ) : array {
+        return [
 
-	protected function construct() {
-
-		$type = Str::before( $this->class, ':' ) ;
-		
-		match ($type) {
-			'm-x' => $this->rules( ".{$this->class}", [
-				'margin-left'  => $this->value ?? 'var(--margin)',
-				'margin-right' => $this->value ?? 'var(--margin)']
-			),
-			'm-y' => $this->rules( ".{$this->class}", [
-				'margin-top'    => $this->value ?? 'var(--margin)',
-				'margin-bottom' => $this->value ?? 'var(--margin)']
-			),
-			'm-t' => $this->rules( ".{$this->class}",['margin-top' => $this->value ?? 'var(--margin)'] ),
-			'm-r' => $this->rules( ".{$this->class}",['margin-right' => $this->value ?? 'var(--margin)'] ),
-			'm-b' => $this->rules( ".{$this->class}",['margin-bottom' => $this->value ?? 'var(--margin)'] ),
-			'm-l' => $this->rules( ".{$this->class}",['margin-left' => $this->value ?? 'var(--margin)'] ),
-			default => $this->rules( ".{$this->class}", ['margin' => $this->value ?? 'var(--margin)'] ),
-		};
-
-	}
+            'm'   => [ 'margin' => $this->value ?? 'var(--margin)' ],
+            'm-x' => [
+                'margin-left'  => $this->value ?? 'var(--margin)',
+                'margin-right' => $this->value ?? 'var(--margin)',
+            ]
+            ,
+            'm-y' => [
+                'margin-top'    => $this->value ?? 'var(--margin)',
+                'margin-bottom' => $this->value ?? 'var(--margin)',
+            ]
+            ,
+            'm-t' => [ 'margin-top' => $this->value ?? 'var(--margin)' ],
+            'm-r' => [ 'margin-right' => $this->value ?? 'var(--margin)' ],
+            'm-b' => [ 'margin-bottom' => $this->value ?? 'var(--margin)' ],
+            'm-l' => [ 'margin-left' => $this->value ?? 'var(--margin)' ],
+        ];
+    }
 }
