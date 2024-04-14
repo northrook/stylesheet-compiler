@@ -646,6 +646,7 @@ class Stylesheet
                 ), ':',
             );
 
+            // TODO: [low] Sanity check : even number of quotes, brackets, etc.
             if ( Str::contains( $stylesheet, [ '{', '}' ] ) ) {
                 $this->enqueued[ $key ] = Str::squish( $stylesheet );
                 unset( $this->enqueued[ $index ] );
@@ -691,7 +692,16 @@ class Stylesheet
 
         $set      = Str::split( Str::squish( $string ), ':' );
         $property = trim( strtolower( $set[ 0 ] ), $trim );
-        $value    = trim( str_replace( [ ' 0px', ' 0em', ' 0rem' ], ' 0', $set[ 1 ] ), $trim );
+
+        /**
+         * TODO: [mid] Bug where a missing space between the property and value causes an error. Example: `margin : 0px` passes, `margin: 0px` passes, `margin :0px` fails
+         */
+
+        if ( !isset( $set[ 1 ] ) ) {
+            dd( $set, $string );
+        }
+
+        $value = trim( str_replace( [ ' 0px', ' 0em', ' 0rem' ], ' 0', $set[ 1 ] ), $trim );
 
         return (object) [
             'property' => $property,
