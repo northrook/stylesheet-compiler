@@ -13,6 +13,11 @@ class Flex extends AbstractRule
             $this->rule( 'flex', [ 'display' => 'flex' ] );
         }
 
+        if ( $this->has( 'col' ) ) {
+            $this->rule( 'col', [ 'flex-direction' => 'column' ] );
+        }
+
+
         // Is this element using a flow layout?
         $flow = $this->has( 'flow' );
         if ( $flow ) {
@@ -89,7 +94,7 @@ class Flex extends AbstractRule
             $this->rules[ 'flex.wrap' ] = [ 'flex-wrap' => 'wrap' ];
         }
 
-        return [        ];
+        return [];
     }
 
     // protected function construct() : void {

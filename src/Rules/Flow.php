@@ -26,7 +26,7 @@ class Flow extends AbstractRule
             $rules = [ 'margin-top' => 'var(--flow-gap, 1em)' ];
         }
 
-        $this->rule( "$this->class > * + *", $rules );
+        $this->rule( "$class > * + *", $rules );
         return [];
     }
 }
