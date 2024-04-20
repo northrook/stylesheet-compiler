@@ -18,9 +18,11 @@
 	"prefer-stable": true,
 	"require": {
 		"php": ">=8.1",
-		"northrook/support": "dev-main"
+		"northrook/support": "dev-main",
+		"northrook/core": "dev-main"
 	},
 	"require-dev": {
-		"symfony/var-dumper": "^7.0"
+		"symfony/var-dumper": "^7.0",
+		"symfony/error-handler": "^7.0"
 	}
 }

@@ -2,6 +2,9 @@
 
 namespace Northrook\Stylesheets;
 
+use Northrook\Core\Service\CoreServiceTrait;
+use Northrook\Core\Service\ServiceStatusInterface;
+use Northrook\Core\Service\Status;
 use Northrook\Logger\Log;
 use Northrook\Support\Arr;
 use Northrook\Support\Convert;
@@ -14,8 +17,11 @@ use Symfony\Component\Filesystem\Exception\FileNotFoundException;
 use function array_reverse;
 use function str_starts_with;
 
-class Stylesheet
+class Stylesheet implements ServiceStatusInterface
+
 {
+    use CoreServiceTrait;
+
     private array $options = [
         'forceUpdate'  => false,
         'colorPalette' => true,
@@ -38,7 +44,7 @@ class Stylesheet
         'user-select',
         'text-size-adjust',
     ];
-    private readonly Path           $savePath;
+    private Path                    $savePath;
     protected readonly Path         $rootDir;
     protected readonly DynamicRules $dynamicRules;
     /**
@@ -59,6 +65,13 @@ class Stylesheet
         array         $templateDirectories = [],
         array         $options = [],
     ) {
+        $this->status = new Status(
+            [
+                "success" => "New stylesheet created", // TODO : Add in $this->filename
+                'notice'  => "Stylesheet regenerated",
+                'error'   => "Error creating stylesheet",
+            ],
+        );
 
         $this->rootDir = $rootDir instanceof Path ? $rootDir : new Path( $rootDir );
         $this->options = array_merge( $this->options, $options );
