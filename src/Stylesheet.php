@@ -704,7 +704,12 @@ class Stylesheet implements ServiceStatusInterface
         // return $screen ?? $media;
     }
 
+    // TODO : Elaborate on trigger_error
     private function declaration( ?string $string, ?string $trim = ' :;' ) : object {
+
+        if ( false === str_contains( $string, ':' ) ) {
+            trigger_error( 'Error parsing Stylesheet' );
+        }
 
         [ $property, $value ] = Str::split( Str::squish( $string ) );
         $property = trim( strtolower( $property ), $trim );
@@ -714,11 +719,7 @@ class Stylesheet implements ServiceStatusInterface
          */
 
         if ( !$property || !$value ) {
-            dd(
-                $string,
-                $property,
-                $value,
-            );
+            trigger_error( 'Error parsing Stylesheet' );
         }
 
         $value = trim( str_replace( [ ' 0px', ' 0em', ' 0rem' ], ' 0', $value ), $trim );
