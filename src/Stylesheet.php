@@ -148,7 +148,10 @@ class Stylesheet implements ServiceStatusInterface
 
     public function build() : bool {
 
+        $this->status->action( __METHOD__ );
+
         if ( isset( $this->styles ) ) {
+            $this->status->action( __METHOD__, 'skipped' );
             return true;
         }
 
@@ -703,18 +706,22 @@ class Stylesheet implements ServiceStatusInterface
 
     private function declaration( ?string $string, ?string $trim = ' :;' ) : object {
 
-        $set      = Str::split( Str::squish( $string ), ':' );
-        $property = trim( strtolower( $set[ 0 ] ), $trim );
+        [ $property, $value ] = Str::split( Str::squish( $string ) );
+        $property = trim( strtolower( $property ), $trim );
 
         /**
          * TODO: [mid] Bug where a missing space between the property and value causes an error. Example: `margin : 0px` passes, `margin: 0px` passes, `margin :0px` fails
          */
 
-        if ( !isset( $set[ 1 ] ) ) {
-            dd( $set, $string );
+        if ( !$property || !$value ) {
+            dd(
+                $string,
+                $property,
+                $value,
+            );
         }
 
-        $value = trim( str_replace( [ ' 0px', ' 0em', ' 0rem' ], ' 0', $set[ 1 ] ), $trim );
+        $value = trim( str_replace( [ ' 0px', ' 0em', ' 0rem' ], ' 0', $value ), $trim );
 
         return (object) [
             'property' => $property,
