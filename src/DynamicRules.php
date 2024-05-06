@@ -181,13 +181,11 @@ final class DynamicRules
 
             unset( $inventory[ $key ] );
 
-            $key = Str::replaceEach(
-                [
-                    ':' => '\:',
-                    '.' => '\.',
-                ],
-                $key,
-            );
+            // Escape the colon used for variable assignment
+            $key = str_replace( ':', '\:', $key );
+
+            // Escape periods in numeric values, while preserving class dot notation
+            $key = preg_replace( '/(\.)(?=\d)/', '\.', $key );
 
             $inventory[ ".$key" ] = $value;
 

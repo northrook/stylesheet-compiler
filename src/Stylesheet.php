@@ -711,7 +711,8 @@ class Stylesheet implements ServiceStatusInterface
             trigger_error( 'Error parsing Stylesheet' );
         }
 
-        [ $property, $value ] = Str::split( Str::squish( $string ) );
+        $string = preg_replace( '/:(?=.)/', ': ', Str::squish( $string ) );
+        [ $property, $value ] = Str::split( $string );
         $property = trim( strtolower( $property ), $trim );
 
         /**
