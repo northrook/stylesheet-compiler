@@ -14,8 +14,6 @@ use Northrook\Support\Sort;
 use Northrook\Support\Str;
 use Northrook\Types\Path;
 use Symfony\Component\Filesystem\Exception\FileNotFoundException;
-use function array_reverse;
-use function str_starts_with;
 
 class Stylesheet implements ServiceStatusInterface
 
