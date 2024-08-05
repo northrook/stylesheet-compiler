@@ -1,28 +1,33 @@
 {
-	"name": "northrook/stylesheets",
-	"description": "Combine multiple stylesheets into one, with coalescing of selectors and properties.",
-	"type": "library",
-	"license": "MIT",
-	"authors": [
-		{
-			"name": "Martin",
-			"email": "mn@northrook.com"
-		}
-	],
-	"autoload": {
-		"psr-4": {
-			"Northrook\\Stylesheets\\": "src/"
-		}
-	},
-	"minimum-stability": "dev",
-	"prefer-stable": true,
-	"require": {
-		"php": ">=8.1",
-		"northrook/support": "dev-main",
-		"northrook/core": "dev-main"
-	},
-	"require-dev": {
-		"symfony/var-dumper": "^7.0",
-		"symfony/error-handler": "^7.0"
-	}
+  "name": "northrook/stylesheets",
+  "description": "Combine multiple stylesheets into one, with coalescing of selectors and properties.",
+  "type": "library",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Martin",
+      "email": "mn@northrook.com"
+    }
+  ],
+  "autoload": {
+    "psr-4": {
+      "Northrook\\CSS\\": "src"
+    }
+  },
+  "minimum-stability": "dev",
+  "prefer-stable": true,
+  "require": {
+    "php": ">=8.1",
+    "northrook/core": "dev-main",
+    "northrook/filesystem": "dev-main",
+    "symfony/finder": "^7.1",
+    "northrook/minify": "dev-main",
+    "sabberworm/php-css-parser": "^8.6"
+  },
+  "require-dev": {
+    "symfony/var-dumper": "^7.0",
+    "symfony/error-handler": "^7.0",
+    "northrook/dev-env": "dev-main",
+    "northrook/design-system": "dev-main"
+  }
 }

@@ -10,10 +10,12 @@
 /composer.lock
 
 # Build data
-/build/
-/assets/
-/public/
-/var/
-/templates/
-/*.php
+_src/
+build/
+assets/
+public/
+var/
+templates/
+/index.php
 /*.css
+!dynamicrules.css

@@ -1,204 +1,229 @@
 <?php
 
-namespace Northrook\Stylesheets;
+declare( strict_types = 1 );
 
-use Northrook\Core\Service\CoreServiceTrait;
-use Northrook\Core\Service\ServiceStatusInterface;
-use Northrook\Core\Service\Status;
+namespace Northrook\CSS;
+
 use Northrook\Logger\Log;
-use Northrook\Support\Arr;
-use Northrook\Support\Convert;
-use Northrook\Support\File;
-use Northrook\Support\Regex;
-use Northrook\Support\Sort;
-use Northrook\Support\Str;
-use Northrook\Types\Path;
-use Symfony\Component\Filesystem\Exception\FileNotFoundException;
+use Northrook\Resource\Path;
+use Psr\Log\LoggerInterface;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
+use SplFileInfo;
+use UnexpectedValueException;
+use function Northrook\hashKey;
+use function Northrook\sourceKey;
 
-class Stylesheet implements ServiceStatusInterface
 
+/**
+ * @author Martin Nielsen <mn@northrook.com>
+ */
+class Stylesheet
 {
-    use CoreServiceTrait;
+    private readonly Compiler $compiler;
 
-    private array $options = [
-        'forceUpdate'  => false,
-        'colorPalette' => true,
-        'dynamicRules' => true,
-        'StyleReset'   => true,
-    ];
+    private Path  $savePath;
+    private array $sources             = [];
+    private array $templateDirectories = [];
+    private int   $lastModified        = 0;
 
-    private array $enqueued;
-    private array $stylesheets = [];
+    protected bool $locked  = false;
+    protected bool $updated = false;
 
-    private array $root      = [];
-    private array $theme     = [];
-    private array $selectors = [];
-    private array $media     = [];
-    private array $keyframes = [];
-
-    private array                   $webkit = [
-        'backdrop-filter',
-        'tap-highlight-color',
-        'user-select',
-        'text-size-adjust',
-    ];
-    private Path                    $savePath;
-    protected readonly Path         $rootDir;
-    protected readonly DynamicRules $dynamicRules;
     /**
-     * @var string|null The resulting CSS, or null on failure.
+     * @param string            $defaultSavePath      Where to save the generated stylesheet
+     * @param array             $sourceDirectories    Will be scanned for .css files
+     * @param array             $templateDirectories  .latte files will be scanned for dynamic styles
+     * @param ?LoggerInterface  $logger               Optional PSR-3 logger
      */
-    public readonly ?string $styles;
-    public bool             $force = false;
-    /**
-     * @var bool True if the Stylesheet was saved successfully.
-     */
-    public readonly bool         $updated;
-    public string                $defaultTheme = 'light';
-    public readonly ColorPalette $palette;
-
     public function __construct(
-        Path | string $rootDir,
-        ?ColorPalette $palette = null,
-        array         $templateDirectories = [],
-        array         $options = [],
+        string                              $defaultSavePath,
+        array                               $sourceDirectories = [],
+        array                               $templateDirectories = [],
+        protected readonly ?LoggerInterface $logger = null,
     ) {
-        $this->status = new Status(
-            [
-                "success" => "New stylesheet created", // TODO : Add in $this->filename
-                'notice'  => "Stylesheet regenerated",
-                'error'   => "Error creating stylesheet",
-            ],
-        );
-
-        $this->rootDir = $rootDir instanceof Path ? $rootDir : new Path( $rootDir );
-        $this->options = array_merge( $this->options, $options );
-
-        $this->palette      = $this->options[ 'colorPalette' ] ? $palette ?? new ColorPalette() : null;
-        $this->dynamicRules = $this->options[ 'dynamicRules' ] ? new DynamicRules(
-            $this->rootDir,
-            $templateDirectories,
-        ) : null;
-
-        if ( $this->options[ 'StyleReset' ] ) {
-            $this->resetRules();
-        }
+        Log::notice( 'Stylesheet initialization' );
+        $this->addSource( ... $sourceDirectories )
+             ->addTemplateDirectory( ... $templateDirectories )
+            ->savePath = new Path( $defaultSavePath );
+        Log::notice( 'Stylesheet initialized' );
     }
 
-    public function __toString() : string {
-        return $this->styles ?? '';
-    }
+    public function addSource( string ...$add ) : Stylesheet {
 
-    private function resetRules() : void {
+        $this->throwIfLocked( "Unable to add new source; locked by the build proccess." );
 
-        $reset = ( true === $this->options[ 'StyleReset' ] ) ? 'baseline' : $this->options[ 'StyleReset' ];
+        foreach ( $add as $source ) {
+            $path = new Path( $source );
 
-        $reset = new Path(
-            str_ends_with( $reset, '.css' ) ? $reset : __DIR__ . '/Resets/' . $reset . '.css',
-        );
+            // If the source is a valid, readable path, add it
+            if ( $path->isReadable ) {
+                $this->sources[ "$path->extension:" . sourceKey( $path ) ] ??= $path;
+            }
+            // If the $source contains brackets, assume it is a raw CSS string
+            elseif ( \str_contains( $source, '{' ) && \str_contains( $source, '}' ) ) {
+                $this->sources[ "raw:" . hashKey( $source ) ] ??= $source;
+            }
 
-        if ( !$reset->exists ) {
-            throw new FileNotFoundException( "Stylesheet::$reset does not exist." );
         }
 
-        $this->options[ 'StyleReset' ] = $reset->value;
-        $this->stylesheets[ 'reset' ]  = $reset->value;
+        return $this;
     }
 
-    public function addTemplatePaths( string ...$path ) : void {
+    public function addTemplateDirectory( string ...$add ) : Stylesheet {
 
-        if ( !$this->options[ 'dynamicRules' ] ) {
-            Log::warning( 'Stylesheet::addTemplateDirectories() requires dynamicRules to be enabled.' );
-            return;
+        $this->throwIfLocked( "Unable to add new template; locked by the build proccess." );
+
+        foreach ( $add as $directory ) {
+            $path = new Path( $directory );
+
+            if ( !$path->isReadable ) {
+                $this->logger?->error(
+                    "Unable to add new template directory '{directory}', as it cannot be read.",
+                    [ 'directory' => $directory, 'path' => $path ],
+                );
+
+                continue;
+            }
+
+            $this->templateDirectories[ Compiler::sourceKey( $path ) ] ??= $path;
         }
 
-        $this->dynamicRules->addTemplateDirectories( ...$path );
-
+        return $this;
     }
 
-    public function addStylesheets( string...$paths ) : void {
 
-        foreach ( $paths as $path ) {
+    final public function save( ?string $savePath = null, bool $force = false ) : bool {
+        Log::info( 'Start: ' . __METHOD__ );
+        if ( $savePath ) {
+            $savePath = new Path( $savePath );
 
-            $path = new Path( $path );
-            $type = ( $path->isDir ? 'dir' : 'file' ) . ".$path->filename:" . crc32( $path->value );
-
-            $this->stylesheets[ $type ] = $path->value;
+            if ( $savePath->isWritable ) {
+                $this->savePath = $savePath;
+            }
+            else {
+                $this->logger?->error(
+                    'Unable to update save path "{savePath}", as it is not writable. Using default save path.',
+                    [ 'savePath' => $savePath ],
+                );
+                // if $this->strict { throw }
+            }
         }
-    }
 
-    public function addStyleString( string $string ) : void {
-        $this->stylesheets[ 'string:' . crc32( $string ) ] = $string;
-    }
-
-    public function save( string $filename ) : bool {
-        $this->savePath = new Path( $filename );
-
-        if ( $this->build() ) {
-            $this->updated = File::save( $this->savePath, $this->styles );
+        if ( $this->build( $force ) ) {
+            dump( "Bob needs to go buildin'" );
+            $this->updated = $this->savePath->save( $this->compiler->css );
         }
         else {
             $this->updated = false;
         }
 
+        Log::info( 'End: ' . __METHOD__ );
         return $this->updated;
     }
 
-    public function build() : bool {
+    final public function build( bool $force = false ) : bool {
 
-        $this->status->action( __METHOD__ );
+        // Lock the $sources
+        $this->locked = true;
 
-        if ( isset( $this->styles ) ) {
-            $this->status->action( __METHOD__, 'skipped' );
-            return true;
-        }
+        // Find all $sources
+        $sources = $this->scanSourceDirectories();
 
-        $this->scanEnqueuedStyles();
-
-        if ( !$this->force() && !$this->updateSavedFile() ) {
+        // Bail if we have no sources, or if generation is unnecessary
+        if ( !$sources || ( !$force && !$this->updateSavedFile() ) ) {
             return false;
         }
 
-        $this->enqueued = $this->getEnqueuedStyles();
-
-        // Parse the enqueued styles
-        foreach ( array_keys( $this->enqueued ) as $stylesheet ) {
-            $this->matchMedia( $stylesheet );
-            $this->matchRootStyles( $stylesheet );
-            $this->matchThemeStyles( $stylesheet );
-            $this->matchMediaElement( $stylesheet );
-            $this->matchKeyframes( $stylesheet );
-            $this->matchRules( $stylesheet );
-        }
-
-        // Clean up the enqueued styles, it should result in an empty array
-        $this->enqueued = array_filter(
-            $this->enqueued,
-            static fn ( $content ) => trim( $content ),
+        // Initialize the compiler from provided $sources
+        $this->compiler ??= new Compiler(
+            $this->enqueueSources( $sources ),
+            $this->logger,
         );
 
-        if ( $this->enqueued ) {
-            Log::Error(
-                'The enqueued styles are not empty. Some styles were not parsed. See $this->enqueued:' . var_export(
-                    $this->enqueued, true,
-                ),
+        $this->compiler->parseEnqueued()
+                       ->mergeRules()
+                       ->generateStylesheet();
+
+        // dump( $this->compiler );
+
+        $this->locked = false;
+        return true;
+    }
+
+    final protected function compiler() : Compiler {
+        return $this->compiler ??= new Compiler( $this->sources, $this->logger );
+    }
+
+    /**
+     * @param ?string  $message  Optional message
+     *
+     * @return void
+     */
+    final protected function throwIfLocked( ?string $message = null ) : void {
+        if ( $this->locked ) {
+            throw new \LogicException(
+                $message ?? $this::class . " has been locked by the build proccess.",
             );
         }
+    }
 
-        // Combine selectors and properties
-        $this->combineSelectorRules();
+    final protected function scanSourceDirectories() : array {
 
-        $this->styles = Arr::implode(
-            [
-                // $this->buildTheme(),
-                $this->buildRoot(),
-                $this->buildElements(),
-                $this->buildMedia(),
-                $this->buildKeyframes(),
-            ],
-        );
+        $files       = [];
+        $underscored = [];
 
-        return true;
+        foreach ( $this->sources as $key => $source ) {
+
+            try {
+                // Recursively scan all provided sources
+                $iterator = new RecursiveIteratorIterator(
+                    new RecursiveDirectoryIterator( (string) $source ),
+                    RecursiveIteratorIterator::CHILD_FIRST,
+                );
+            }
+            catch ( UnexpectedValueException ) {
+                // If we encounter an exception, check if it is a raw source
+                if (
+                    \str_starts_with( $key, 'raw' )
+                    || $source instanceof Path
+                ) {
+                    $files[ $key ] = $source;
+                }
+                continue;
+            }
+
+            /** @var SplFileInfo $file */
+            foreach ( $iterator as $file ) {
+
+                // Skip directories
+                if ( $file->isDir() ) {
+                    continue;
+                }
+
+                $path         = new Path( $file->getPathname() );
+                $lastModified = (int) $file->getMTime();
+
+                if ( $lastModified > $this->lastModified ) {
+                    $this->lastModified = $lastModified;
+                }
+
+                $key = 'css:' . sourceKey( $path );
+
+                if ( \str_starts_with( \basename( (string) $path ), '_' ) ) {
+                    $underscored[ $key ] = $path;
+                }
+                else {
+                    $files[ $key ] = $path;
+                }
+            }
+        }
+
+        // \usort(
+        //     $underscored, static fn ( $a, $b ) => \strlen( \strrchr( $a, '_' ) ) <=> \strlen( \strrchr( $b, '_' ) ),
+        // );
+
+        return \array_merge( $underscored, $files );
     }
 
     /**
@@ -210,564 +235,31 @@ class Stylesheet implements ServiceStatusInterface
 
         if ( !isset( $this->savePath ) ) {
 
-            Log::Error( 'Stylesheet::savePath is not set.' );
+            $this->logger?->error( 'Stylesheet::savePath is not set.' );
 
             return false;
         }
 
-        // Clear the
-        clearstatcache( true, $this->savePath );
-
-        // Loop through each provided asset and get modified times
-        $assets = array_map(
-            static function ( $enqueued ) {
-                if ( file_exists( $enqueued ) ) {
-                    clearstatcache( true, $enqueued );
-                    return filemtime( filename : $enqueued );
-                }
-                return 0;
-            },
-            $this->enqueued,
-        );
-
-        $enqueued = $this->savePath->exists ? filemtime( $this->savePath ) : 0;
-
         // If any of the assets are newer than the saved file, return true
-        return !empty( $assets ) && max( $assets ) >= $enqueued;
+        return $this->lastModified >= ( $this->savePath->exists ? $this->savePath->lastModified : 0 );
     }
 
-    private function combineSelectorRules() : void {
-        $elements = [];
+    private function enqueueSources( array $sources ) : array {
 
-        foreach ( $this->selectors as $selector => $rules ) {
-            $merge = array_search( $rules, $elements, true );
+        foreach ( $sources as $index => $source ) {
 
-            if ( $merge ) {
-                $combined = "$merge, $selector";
-                $elements = Arr::replaceKey( $elements, $merge, $combined );
+            $key   = sourceKey( $source );
+            $value = $source instanceof Path ? $source->read : $source;
 
-                unset( $elements[ $selector ] ); // ! unset current key
-            }
-            else {
-                $elements[ $selector ] = $rules;
-            }
-
-        }
-
-        $this->selectors = $elements;
-
-        if ( isset( $this->dynamicRules ) ) {
-            $this->selectors = array_merge( $this->selectors, $this->dynamicRules->parse()->variables );
-        }
-
-        $this->root[ 'dynamic' ] = $this->dynamicRules->root;
-    }
-
-    private function matchMedia( string $parse ) : void {
-
-        if ( !$styles = $this->enqueued[ $parse ] ?? null ) {
-            return;
-        }
-
-        foreach ( Regex::matchNamedGroups(
-            pattern : '/(?<screen>@media.*?\((?<size>.+?)\).*?{)(?<elements>.*?}\s*?)(?<end>})/ms',
-            subject : $styles,
-        ) as $media ) {
-            $this->updateEnqueuedStylesheet( $parse, $media->matched );
-            $size = $this->resolveMediaSize( $media->size );
-
-            foreach ( Regex::matchNamedGroups(
-                pattern : "/(.*?(?<rule>\S.+?){(?<declaration>.+?)})/ms",
-                subject : $media->elements,
-            ) as $screen ) {
-                $rule = trim( $screen->rule );
-
-                // Debug::dump( $size,$media->elements,$media, $screen );
-                foreach ( $this->explodeDeclaration( $screen->declaration ) as $selector ) {
-                    $declaration = $this->declaration( $selector );
-
-                    if ( in_array( $declaration->property, $this->webkit, true ) ) {
-                        $this->media[ $size ][ $rule ][ "-webkit-$declaration->property" ] = $declaration->value;
-                    }
-                    $this->media[ $size ][ $rule ][ $declaration->property ] = $declaration->value;
-
-                }
-
-            }
-
-            // Debug::dump( $this->screens );
-        }
-
-    }
-
-    private function matchRootStyles( string $parse ) : void {
-
-        if ( !$styles = $this->enqueued[ $parse ] ?? null ) {
-            return;
-        }
-
-        foreach ( Regex::matchNamedGroups(
-            pattern : '/((?<rule>:root.+?){(?<declaration>.+?)})/ms',
-            subject : $styles,
-        ) as $root ) {
-
-            $this->updateEnqueuedStylesheet( $parse, $root->matched );
-
-            foreach ( $this->explodeDeclaration( $root->declaration ) as $declaration ) {
-
-                $variable = $this->declaration( $declaration );
-
-                $this->root[ $parse ][ $variable->property ] = $variable->value;
-            }
-
-        }
-
-    }
-
-    private function matchThemeStyles( string $parse ) : void {
-
-        if ( !$styles = $this->enqueued[ $parse ] ?? null ) {
-            return;
-        }
-
-
-        foreach ( $this->palette->getVariables() as $name => $palette ) {
-
-            $theme = "[theme=\"$name\"]";
-
-            foreach ( $palette as $variable => $value ) {
-
-                if ( $this->defaultTheme === $name ) {
-                    $this->selectors[ 'html' ][ $variable ] = $value;
-                }
-
-                $this->selectors[ $theme ][ $variable ] = $value;
-            }
-        }
-
-
-        foreach ( Regex::matchNamedGroups(
-            pattern : '/((?<rule>\[theme.+?){(?<declaration>.+?)})/ms',
-            subject : $styles,
-        ) as $theme ) {
-            // Debug::print( $match );
-            $this->updateEnqueuedStylesheet( $parse, $theme->matched );
-
-            foreach ( $this->explodeRule( $theme->rule ) as $element ) {
-
-                foreach ( $this->explodeDeclaration( $theme->declaration ) as $declaration ) {
-
-                    $declaration = $this->declaration( $declaration );
-
-                    if ( in_array( $declaration->property, $this->webkit, true ) ) {
-                        $this->selectors[ $element ][ "-webkit-$declaration->property" ] = $declaration->value;
-                    }
-
-                    $this->selectors[ $element ][ $declaration->property ] = $declaration->value;
-                }
-
-            }
-
-        }
-
-    }
-
-    private function matchMediaElement( string $parse ) : void {
-
-        if ( !$styles = $this->enqueued[ $parse ] ?? null ) {
-            return;
-        }
-
-        // $sizes = $this->setting()::screens( 'all' );
-        $sizes = [
-            'full'   => 1420,
-            'large'  => 1020,
-            'medium' => 640,
-            'small'  => 420,
-        ];
-
-        foreach ( Regex::matchNamedGroups(
-            pattern : "/(^@(?<type>.+?)\b(?<rule>.+?){(?<declaration>.+?)})/ms",
-            subject : $styles,
-        ) as $match ) {
-            if ( $match->type === 'each' ) {
-                $this->updateEnqueuedStylesheet( $parse, $match->matched );
-
-                foreach ( $this->explodeRule( $match->rule ) as $element ) {
-                    foreach ( $this->explodeDeclaration( $match->declaration ) as $declaration ) {
-
-                        $declaration = $this->declaration( $declaration );
-
-                        if ( in_array( $declaration->property, $this->webkit, true ) ) {
-                            $this->selectors[ $element ][ "-webkit-$declaration->property" ] = $declaration->value;
-                        }
-
-                        $this->selectors[ $element ][ $declaration->property ] = $declaration->value;
-                    }
-
-                }
-
-            }
-            else {
-                if ( array_key_exists( $match->type, $sizes ) ) {
-                    $this->updateEnqueuedStylesheet( $parse, $match->matched );
-
-                    foreach ( $this->explodeDeclaration( $match->declaration ) as $selector ) {
-                        $declaration = $this->declaration( $selector );
-
-                        $this->media[ "max:$match->type" ][ $match->rule ][ $declaration->property ] =
-                            $declaration->value;
-                    }
-
-                }
-            }
-
-        }
-
-        foreach ( Regex::matchNamedGroups(
-            pattern : "/(^@each.*?(?<rule>\w.+?){(?<declaration>.+?)})/ms",
-            subject : $styles,
-        ) as $match ) {
-            // Debug::print( $match );
-            $this->updateEnqueuedStylesheet( $parse, $match->matched );
-
-            foreach ( $this->explodeRule( $match->rule ) as $element ) {
-
-                foreach ( $this->explodeDeclaration( $match->declaration ) as $declaration ) {
-
-                    $declaration = $this->declaration( $declaration );
-
-                    if ( in_array( $declaration->property, $this->webkit, true ) ) {
-                        $this->selectors[ $element ][ "-webkit-$declaration->property" ] = $declaration->value;
-                    }
-
-                    $this->selectors[ $element ][ $declaration->property ] = $declaration->value;
-                }
-
-            }
-
-        }
-
-    }
-
-    private function matchKeyframes( string $parse ) : void {
-
-        if ( !$styles = $this->enqueued[ $parse ] ?? null ) {
-            return;
-        }
-
-        foreach ( Regex::matchNamedGroups(
-            pattern : "/@keyframes\s+?(?<key>\w.+?)\s.*?{(?<animation>.*?{.+?})\s*}/ms",
-            subject : $styles,
-        ) as $keyframe ) {
-
-            $this->updateEnqueuedStylesheet( $parse, $keyframe->matched );
-
-            $this->keyframes[ trim( $keyframe->key ) ] = $keyframe->animation;
-        }
-    }
-
-    private function matchRules( string $parse ) : void {
-
-        if ( !$styles = $this->enqueued[ $parse ] ?? null ) {
-            return;
-        }
-
-        foreach ( Regex::matchNamedGroups(
-            pattern : "/((?<rule>.*?){(?<declaration>.+?)})/ms",
-            subject : $styles,
-        ) as $match ) {
-
-            $this->updateEnqueuedStylesheet( $parse, $match->matched );
-
-            foreach ( $this->explodeRule( $match->rule ) as $element ) {
-
-                foreach ( $this->explodeDeclaration( $match->declaration ) as $declaration ) {
-
-                    $declaration = $this->declaration( $declaration );
-
-                    if ( in_array( $declaration->property, $this->webkit, true ) ) {
-                        $this->selectors[ $element ][ "-webkit-$declaration->property" ] = $declaration->value;
-                    }
-                    $this->selectors[ $element ][ $declaration->property ] = $declaration->value;
-                }
-
-            }
-
-        }
-
-    }
-
-    private function buildRoot() : ?string {
-
-        if ( !$this->root ) {
-            return null;
-        }
-
-        $shadow = $this->root[ 'colors' ][ '--baseline-100' ] ?? null;
-
-        if ( $shadow ) {
-            $this->root[ 'colors' ][ '--shadow' ] = $this->root[ 'colors' ][ '--baseline-100' ];
-        }
-
-        $root = [ ':root {' ];
-
-        foreach (
-            array_merge( ...array_values( $this->root ) ) as $variable => $value
-        ) {
-            $root[] = "\t$variable: $value;";
-
-        }
-
-        $root[] = '}';
-
-        unset( $this->root );
-
-        return PHP_EOL . Arr::implode(
-                $root,
-                "\n\t",
-            );
-    }
-
-    private function buildElements() : ?string {
-        $elements = [];
-
-        foreach (
-            array_filter( $this->selectors ) as $element => $declarationBlock
-        ) {
-            $declaration = [];
-            krsort( $declarationBlock );
-            $declarationBlock = array_reverse( $declarationBlock );
-            uksort( $declarationBlock, [ Sort::class, 'stylesheetDeclarations' ] );
-
-            foreach (
-                $declarationBlock as $variable => $value ) {
-                $declaration[] = "$variable: $value;";
-            }
-
-            $declaration = Arr::implode(
-                $declaration,
-                "\n\t",
-            );
-
-            if ( str_starts_with( $element, '*' ) ) {
-                array_unshift( $elements, "$element {\n\t$declaration\n} " );
-            }
-            else {
-                $elements[] = "$element {\n\t$declaration\n} ";
-            }
-
-        }
-
-        unset( $this->selectors );
-
-        return $this->elementGroup( $elements );
-    }
-
-    private function elementGroup( array $elements ) : string {
-        return "\n" . Arr::implode(
-                $elements,
-                "\n\n",
-            );
-    }
-
-    private function buildMedia() : ?string {
-
-        $sizes    = [
-            'full'   => 1420,
-            'large'  => 1020,
-            'medium' => 640,
-            'small'  => 420,
-        ];
-        $elements = [];
-
-        foreach (
-            array_filter( $this->media ) as $mediaSize => $screens
-        ) {
-
-            $set  = Str::split( $mediaSize, ':' );
-            $size = Convert::pxToRem( $sizes[ $set[ 1 ] ] ?? null );
-
-            if ( $size ) {
-                $type   = trim( $set[ 0 ], ' :' );
-                $screen = "@media ($type-width : $size)";
-            }
-            else {
-                $screen = "@media ($mediaSize)";
-            }
-
-            $elements[] = "$screen {";
-
-            foreach ( $screens as $element => $declarationBlock ) {
-                $declaration = [];
-                uksort( $declarationBlock, [ Sort::class, 'stylesheetDeclarations' ] );
-
-                foreach (
-                    $declarationBlock as $variable => $value ) {
-                    $declaration[] = "$variable: $value;";
-                }
-
-                $declaration = Arr::implode(
-                    $declaration,
-                    "\n\t\t",
+            if ( !$value ) {
+                $this->logger?->critical(
+                    $this::class . ' is unable to read source "{source}"',
+                    [ 'source' => $source ],
                 );
-                $elements[]  = "\t$element {\n\t\t$declaration\n\t} ";
             }
-
-            $elements[] = "}";
-        }
-
-        unset( $this->media );
-
-        return PHP_EOL . Arr::implode(
-                $elements,
-                PHP_EOL . PHP_EOL,
-            );
-    }
-
-    private function buildKeyframes() : ?string {
-
-        $keyframes = [];
-
-        foreach (
-            array_filter( $this->keyframes ) as $animation => $animationFrame
-        ) {
-            $animation   = "@keyframes $animation";
-            $keyframes[] = "$animation {\n$animationFrame\n} ";
-        }
-
-        unset( $this->keyframes );
-
-        return PHP_EOL . Arr::implode(
-                $keyframes,
-                PHP_EOL . PHP_EOL,
-            );
-    }
-
-    private function scanEnqueuedStyles() : void {
-        $this->enqueued = File::scanDirectories( path : $this->stylesheets, addUnexpectedValue : true );
-    }
-
-    private function getEnqueuedStyles() : array {
-
-        foreach ( $this->enqueued as $index => $stylesheet ) {
-
-            $key = trim(
-                str_replace(
-                    [ '.css', DIRECTORY_SEPARATOR ],
-                    [ '', ':' ],
-                    $stylesheet,
-                ), ':',
-            );
-
-            // TODO: [low] Sanity check : even number of quotes, brackets, etc.
-            if ( Str::contains( $stylesheet, [ '{', '}' ] ) ) {
-                $this->enqueued[ $key ] = Str::squish( $stylesheet );
-                unset( $this->enqueued[ $index ] );
-                continue;
-            }
-
-            if ( $style = File::getContents( $stylesheet ) ) {
-                $this->enqueued[ $key ] = Str::squish( $style );
-                unset( $this->enqueued[ $index ] );
-                continue;
-            }
-
-            Log::Error( "Stylesheet $stylesheet not found." );
-        }
-
-        return $this->enqueued;
-    }
-
-    // TODO: [low] Fix media queries.
-    private function resolveMediaSize( string $media ) : ?string {
-
-        return $media;
-        //
-        // if ( !Str::contains( $media, [ 'px', 'em', 'rem' ] ) ) {
-        //     return $media;
-        // }
-        //
-        // $sizes  = [
-        //     'small'  => '420', // px
-        //     'medium' => '640', // px
-        //     'large'  => '1024', // px
-        //     'full'   => '1420', // px | get data from full width
-        // ];
-        // $screen = substr( trim( $media ), 0, 3 ) . ':';
-        // $px     = (int) Num::extract( $media );
-        // $screen .= Num::closest( $px, $sizes, true );
-        //
-        //
-        // return $screen ?? $media;
-    }
-
-    // TODO : Elaborate on trigger_error
-    private function declaration( ?string $string, ?string $trim = ' :;' ) : object {
-
-        if ( false === str_contains( $string, ':' ) ) {
-            trigger_error( 'Error parsing Stylesheet' );
-        }
-
-        $string = preg_replace( '/:(?=.)/', ': ', Str::squish( $string ) );
-        [ $property, $value ] = Str::split( $string );
-        $property = trim( strtolower( $property ), $trim );
-
-        /**
-         * TODO: [mid] Bug where a missing space between the property and value causes an error. Example: `margin : 0px` passes, `margin: 0px` passes, `margin :0px` fails
-         */
-
-        if ( !$property || !$value ) {
-            trigger_error( 'Error parsing Stylesheet' );
-        }
-
-        $value = trim( str_replace( [ ' 0px', ' 0em', ' 0rem' ], ' 0', $value ), $trim );
-
-        return (object) [
-            'property' => $property,
-            'value'    => $value,
-        ];
-    }
-
-    private function explodeDeclaration( ?string $string ) : array {
-        $declarations = explode( ';', trim( $string ) );
-
-        foreach ( array_filter( $declarations ) as $key => &$part ) {
-            $part = trim( $part );
-
-            if ( !$part ) {
-                unset( $declarations[ $key ] );
-            }
+            $sources[ $index ] = $value;
 
         }
-
-        return array_filter( $declarations );
-    }
-
-    private function explodeRule( ?string $string ) : array {
-        $rule = array_filter( explode( ',', $string ) );
-
-        foreach ( $rule as &$value ) {
-            $value = strtolower( trim( $value ) );
-        }
-
-        return $rule;
-    }
-
-    /**
-     * Remove the parsed partial $string from `$this->enqueued[$stylesheet]`
-     *
-     * @param string       $stylesheet  The stylesheet to parse
-     * @param string|null  $string      The string to remove
-     *
-     * @return void
-     */
-    private function updateEnqueuedStylesheet( string $stylesheet, ?string $string ) : void {
-        $this->enqueued[ $stylesheet ] = str_replace( $string, '', $this->enqueued[ $stylesheet ] );
-    }
-
-
-    private function force() : bool {
-        return $this->force ?? $this->options[ 'forceUpdate' ] ?? false;
+        return $sources;
     }
 }
