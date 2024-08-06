@@ -54,15 +54,24 @@ class Stylesheet
         $this->throwIfLocked( "Unable to add new source; locked by the build proccess." );
 
         foreach ( $add as $source ) {
+
+            // If the $source contains brackets, assume it is a raw CSS string
+            if ( \str_contains( $source, '{' ) && \str_contains( $source, '}' ) ) {
+                $this->sources[ "raw:" . hashKey( $source ) ] ??= $source;
+                continue;
+            }
+
             $path = new Path( $source );
 
             // If the source is a valid, readable path, add it
             if ( $path->isReadable ) {
                 $this->sources[ "$path->extension:" . sourceKey( $path ) ] ??= $path;
             }
-            // If the $source contains brackets, assume it is a raw CSS string
-            elseif ( \str_contains( $source, '{' ) && \str_contains( $source, '}' ) ) {
-                $this->sources[ "raw:" . hashKey( $source ) ] ??= $source;
+            else {
+                $this->logger?->error(
+                    "Unable to add new source {source}, the path is not readable.",
+                    [ 'source' => $source, 'path' => $path ],
+                );
             }
 
         }
@@ -86,7 +95,7 @@ class Stylesheet
                 continue;
             }
 
-            $this->templateDirectories[ Compiler::sourceKey( $path ) ] ??= $path;
+            $this->templateDirectories[ sourceKey( $path ) ] ??= $path;
         }
 
         return $this;
@@ -248,7 +257,6 @@ class Stylesheet
 
         foreach ( $sources as $index => $source ) {
 
-            $key   = sourceKey( $source );
             $value = $source instanceof Path ? $source->read : $source;
 
             if ( !$value ) {
