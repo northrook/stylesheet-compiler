@@ -23,11 +23,6 @@ class Stylesheet
     private readonly Compiler $compiler;
 
     private Path  $savePath;
-    private array $precompiledSources  = [
-        'reset'        => null,
-        'baseline'     => null,
-        'dynamicRules' => null,
-    ];
     private array $sources             = [];
     private array $templateDirectories = [];
     private int   $lastModified        = 0;
@@ -55,18 +50,20 @@ class Stylesheet
     }
 
     public function addBaseline() : Stylesheet {
-        $this->precompiledSources[ 'baseline' ] = new Path( __DIR__ . '/Precompiled/baseline.css' );
+        $precompiled   = [ 'baseline' => new Path( __DIR__ . '/Precompiled/baseline.css' ) ];
+        $this->sources = [ ...$precompiled, ... $this->sources ];
         return $this;
     }
 
     public function addReset() : Stylesheet {
-        $this->precompiledSources[ 'reset' ] = new Path( __DIR__ . '/Precompiled/reset.css' );
+        $precompiled   = [ 'reset' => new Path( __DIR__ . '/Precompiled/reset.css' ) ];
+        $this->sources = [ ...$precompiled, ... $this->sources ];
         return $this;
     }
 
     public function addDynamicRules() : Stylesheet {
-        $this->precompiledSources[ 'dynamicRules' ] =
-            new Path( __DIR__ . '/Precompiled/dynamicrules.css' );
+        $precompiled   = [ 'dynamicRules' => new Path( __DIR__ . '/Precompiled/dynamicrules.css' ) ];
+        $this->sources = [ ...$precompiled, ... $this->sources ];
         return $this;
     }
 
@@ -275,8 +272,6 @@ class Stylesheet
     }
 
     private function enqueueSources( array $sources ) : array {
-
-        $sources = [ ...\array_filter( $this->precompiledSources ), ... $sources ];
 
         foreach ( $sources as $index => $source ) {
 
