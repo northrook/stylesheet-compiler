@@ -138,7 +138,10 @@ class Stylesheet
         }
 
         if ( $this->build( $force ) ) {
-            dump( "Bob needs to go buildin'" );
+            $this->logger->info(
+                'Saving compiled stylesheet to (path).',
+                [ 'path' => $this->savePath ],
+            );
             $this->updated = $this->savePath->save( $this->compiler->css );
         }
         else {
@@ -171,9 +174,7 @@ class Stylesheet
         $this->compiler->parseEnqueued()
                        ->mergeRules()
                        ->generateStylesheet();
-
-        // dump( $this->compiler );
-
+        
         $this->locked = false;
         return true;
     }

@@ -4,6 +4,7 @@ declare( strict_types = 1 );
 
 namespace Northrook\CSS\Compiler\Syntax;
 
+use Northrook\Core\Exception\CompileException;
 use function Northrook\replaceEach;
 
 /**
@@ -47,8 +48,7 @@ class Rule
         foreach ( $exploded as $declaration ) {
 
             if ( false === str_contains( $declaration, ':' ) ) {
-                dump( $exploded );
-                \trigger_error( 'Error parsing Stylesheet' );
+                throw new CompileException( 'Error parsing Stylesheet', $exploded );
             }
 
             [ $selector, $value ] = \explode( ':', $declaration );
