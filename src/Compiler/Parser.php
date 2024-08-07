@@ -57,6 +57,8 @@ final class Parser
             return;
         }
 
+        dump( $next );
+
         [ $selector, $declaration ] = explode( '{', $next, 2 );
         $declaration = \substr( $declaration, 0, \strripos( $declaration, '}' ) );
 

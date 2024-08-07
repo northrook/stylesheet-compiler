@@ -42,9 +42,12 @@ class Rule
 
         $declarations = [];
 
-        foreach ( $this->explode( $declaration ) as $declaration ) {
+        $exploded = $this->explode( $declaration );
+
+        foreach ( $exploded as $declaration ) {
 
             if ( false === str_contains( $declaration, ':' ) ) {
+                dump( $exploded );
                 \trigger_error( 'Error parsing Stylesheet' );
             }
 
