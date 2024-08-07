@@ -23,7 +23,11 @@ class Stylesheet
     private readonly Compiler $compiler;
 
     private Path  $savePath;
-    private array $sources             = [];
+    private array $sources             = [
+        'reset'        => null,
+        'baseline'     => null,
+        'dynamicRules' => null,
+    ];
     private array $templateDirectories = [];
     private int   $lastModified        = 0;
 
@@ -47,6 +51,21 @@ class Stylesheet
              ->addTemplateDirectory( ... $templateDirectories )
             ->savePath = new Path( $defaultSavePath );
         Log::notice( 'Stylesheet initialized' );
+    }
+
+    public function baseline() : Stylesheet {
+        $this->sources[ 'baseline' ] = __DIR__ . '/Precompiled/baseline.css';
+        return $this;
+    }
+
+    public function reset() : Stylesheet {
+        $this->sources[ 'reset' ] = __DIR__ . '/Precompiled/reset.css';
+        return $this;
+    }
+
+    public function dynamicRules() : Stylesheet {
+        $this->sources[ 'dynamicRules' ] = __DIR__ . '/Precompiled/dynamicrules.css.css';
+        return $this;
     }
 
     public function addSource( string ...$add ) : Stylesheet {

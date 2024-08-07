@@ -1,0 +1,16 @@
+
+:root {
+    --scroll-padding-top : 0;
+    --max-inline-size    : 64ch;
+}
+
+@media (prefers-reduced-motion : no-preference) {
+    :has(:target) {
+        scroll-padding-top : var(--scroll-padding-top, 3rem);
+        scroll-behavior    : smooth;
+    }
+}
+
+p {
+    max-inline-size : var(--max-inline-size, 64ch);
+}
