@@ -73,6 +73,14 @@ class Stylesheet
 
         foreach ( $add as $source ) {
 
+            if ( !$source ) {
+                $this->logger?->notice(
+                    "The provided source is an empty string. It was not enqueud.",
+                    [ 'sources' => $add, ],
+                );
+                continue;
+            }
+
             // If the $source contains brackets, assume it is a raw CSS string
             if ( \str_contains( $source, '{' ) && \str_contains( $source, '}' ) ) {
                 $this->sources[ "raw:" . hashKey( $source ) ] ??= $source;
@@ -138,7 +146,7 @@ class Stylesheet
         }
 
         if ( $this->build( $force ) ) {
-            $this->logger->info(
+            $this->logger?->info(
                 'Saving compiled stylesheet to (path).',
                 [ 'path' => $this->savePath ],
             );
@@ -174,7 +182,7 @@ class Stylesheet
         $this->compiler->parseEnqueued()
                        ->mergeRules()
                        ->generateStylesheet();
-        
+
         $this->locked = false;
         return true;
     }
@@ -225,7 +233,7 @@ class Stylesheet
             foreach ( $iterator as $file ) {
 
                 // Skip directories
-                if ( $file->isDir() ) {
+                if ( $file->isDir() || $file->getExtension() !== 'css' ) {
                     continue;
                 }
 

@@ -4,13 +4,32 @@
     --max-inline-size    : 64ch;
 }
 
+p {
+    max-inline-size : var(--max-inline-size, 64ch);
+}
+
+
+area, button, input, label, select, summary, textarea, [tabindex] {
+    -ms-touch-action : manipulation;
+    touch-action     : manipulation;
+}
+
+/* Alternative to disabling when waiting for response/animation? */
+[aria-busy='true'] {
+    cursor : progress;
+}
+
+[aria-controls] {
+    cursor : pointer;
+}
+
+[aria-disabled='true'], [disabled] {
+    cursor : not-allowed;
+}
+
 @media (prefers-reduced-motion : no-preference) {
     :has(:target) {
         scroll-padding-top : var(--scroll-padding-top, 3rem);
         scroll-behavior    : smooth;
     }
-}
-
-p {
-    max-inline-size : var(--max-inline-size, 64ch);
 }

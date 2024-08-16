@@ -102,25 +102,38 @@ class Compiler
 
         // Loop through each provided sources' compiled AST
         foreach ( $this->ast as $source => $rules ) {
-            foreach ( $rules as $rule ) {
+            foreach ( $rules as $selector => $declarations ) {
 
-                if ( $rule instanceof Statement ) {
-                    $this->handleStatement( $rule );
-                    continue;
+                foreach ( $declarations as $declaration ) {
+                    if ( $declaration instanceof Statement ) {
+                        $this->handleStatement( $declaration );
+                        continue;
+                    }
+
+                    $this->rules[ $selector ] =
+                        \array_merge( $this->rules[ $selector ] ?? [], $this->compileDeclaration( $declaration ) );
                 }
-
-                $selector    = $rule->selector;
-                $declaration = $this->compileDeclaration( $rule );
-
-                $declarations = \array_merge( $this->rules[ $selector ] ?? [], $declaration );
-
-                $this->rules[ $selector ] = $declarations;
             }
         }
 
         $this->sortRules();
 
+        dump( $this->rules );
         return $this;
+    }
+
+    final function sort( array $array ) : array {
+
+        $variables = [];
+
+        foreach ( $array as $key => $value ) {
+            if ( \str_starts_with( $key, '--' ) ) {
+                $variables[ $key ] = $value;
+                unset( $array[ $key ] );
+            }
+        }
+
+        return [ ...$variables, ...$array ];
     }
 
     final protected function sortRules() : void {
@@ -190,6 +203,8 @@ class Compiler
                 ...$this->rules,
             ],
         );
+
+        $this->rules = array_map( [ $this, 'sort' ], $this->rules );
     }
 
     private function ingestSources( array $source ) : self {
@@ -460,8 +475,8 @@ class Compiler
 
 
         $hierarchy = array_flip( $sortByList );
-        $a         = trim( $a, ' :' );
-        $b         = trim( $b, ' :' );
+        $a         = trim( $a, ' -:' );
+        $b         = trim( $b, ' -:' );
         if (
             array_key_exists( $a, $hierarchy )
             &&
