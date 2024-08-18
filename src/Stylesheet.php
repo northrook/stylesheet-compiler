@@ -4,6 +4,7 @@ declare( strict_types = 1 );
 
 namespace Northrook\CSS;
 
+use Northrook\Get;
 use Northrook\Logger\Log;
 use Northrook\Resource\Path;
 use Psr\Log\LoggerInterface;
@@ -45,7 +46,7 @@ class Stylesheet
         Log::notice( 'Stylesheet initialization' );
         $this->addSource( ... $sourceDirectories )
              ->addTemplateDirectory( ... $templateDirectories )
-            ->savePath = new Path( $defaultSavePath );
+            ->savePath = Get::path( $defaultSavePath, true );
         Log::notice( 'Stylesheet initialized' );
     }
 
@@ -87,7 +88,7 @@ class Stylesheet
                 continue;
             }
 
-            $path = new Path( $source );
+            $path = Get::path( $source, true );
 
             // If the source is a valid, readable path, add it
             if ( $path->isReadable ) {
@@ -110,7 +111,7 @@ class Stylesheet
         $this->throwIfLocked( "Unable to add new template; locked by the build proccess." );
 
         foreach ( $add as $directory ) {
-            $path = new Path( $directory );
+            $path = Get::path( $directory, true );
 
             if ( !$path->isReadable ) {
                 $this->logger?->error(
@@ -131,7 +132,7 @@ class Stylesheet
     final public function save( ?string $savePath = null, bool $force = false ) : bool {
         Log::info( 'Start: ' . __METHOD__ );
         if ( $savePath ) {
-            $savePath = new Path( $savePath );
+            $savePath = Get::path( $savePath, true );
 
             if ( $savePath->isWritable ) {
                 $this->savePath = $savePath;
