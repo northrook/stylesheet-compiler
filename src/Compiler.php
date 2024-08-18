@@ -48,7 +48,6 @@ class Compiler
 
         $stylesheet->build();
 
-        // dump( $stylesheet );
         $this->css = $stylesheet->toString();
 
         $this->compiledSizeBytes = \strlen( $this->css );
@@ -100,25 +99,34 @@ class Compiler
 
     final public function mergeRules() : self {
 
+        // dd($this);
         // Loop through each provided sources' compiled AST
         foreach ( $this->ast as $source => $rules ) {
-            foreach ( $rules as $selector => $declarations ) {
+            foreach ( $rules as $selector => $declaration ) {
 
-                foreach ( $declarations as $declaration ) {
-                    if ( $declaration instanceof Statement ) {
-                        $this->handleStatement( $declaration );
-                        continue;
-                    }
+                // dump( $declarations );
+                // foreach ( $declarations as $declaration ) {
 
-                    $this->rules[ $selector ] =
-                        \array_merge( $this->rules[ $selector ] ?? [], $this->compileDeclaration( $declaration ) );
+                if ( $declaration instanceof Statement ) {
+                    $this->handleStatement( $declaration );
+                    continue;
                 }
+
+                // if ( !\is_string( $declaration ) ) {
+                // }
+
+                $this->rules[ $selector ] =
+                    \array_merge(
+                        $this->rules[ $selector ] ?? [],
+                        $this->compileDeclaration( $declaration ),
+                    );
+                // }
             }
         }
 
+
         $this->sortRules();
 
-        dump( $this->rules );
         return $this;
     }
 
@@ -172,10 +180,10 @@ class Compiler
             }
             elseif ( \preg_match( '#^[a-zA-Z][^.:>~]*$#m', $selector ) ) {
 
-                if ( \str_starts_with( $selector, 'html', ) ) {
+                if ( \str_starts_with( $selector, 'html' ) ) {
                     $html[ $selector ] = $rule;
                 }
-                elseif ( \str_starts_with( $selector, 'body', ) ) {
+                elseif ( \str_starts_with( $selector, 'body' ) ) {
                     $body[ $selector ] = $rule;
                 }
                 else {
@@ -204,7 +212,12 @@ class Compiler
             ],
         );
 
-        $this->rules = array_map( [ $this, 'sort' ], $this->rules );
+        foreach ( $this->rules as $selector => $rule ) {
+            if ( !\is_array( $rule ) ) {
+                continue;
+            }
+            $this->rules[ $selector ] = $this->sort( $rule );
+        }
     }
 
     private function ingestSources( array $source ) : self {

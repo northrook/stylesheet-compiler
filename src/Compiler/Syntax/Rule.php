@@ -4,7 +4,7 @@ declare( strict_types = 1 );
 
 namespace Northrook\CSS\Compiler\Syntax;
 
-use Northrook\Core\Exception\CompileException;
+use Northrook\Exception\CompileException;
 use function Northrook\replaceEach;
 
 /**
@@ -67,7 +67,7 @@ class Rule
 
     private function explode( string $declaration ) : array {
         return \array_filter(
-            \explode( ';', \trim( $declaration, " \n\r\t\v\0{}", ), ),
+            \explode( ';', \trim( $declaration, " \n\r\t\v\0{}" ) ),
         );
     }
 }
