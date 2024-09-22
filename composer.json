@@ -21,7 +21,8 @@
     "northrook/core": "dev-main",
     "northrook/filesystem": "dev-main",
     "symfony/finder": "^7.1",
-    "northrook/minify": "dev-main"
+    "northrook/minify": "dev-main",
+    "northrook/clerk": "dev-main"
   },
   "require-dev": {
     "symfony/var-dumper": "^7.0",

@@ -4,8 +4,8 @@ declare( strict_types = 1 );
 
 namespace Northrook\CSS;
 
+use Northrook\Clerk;
 use Northrook\Get;
-use Northrook\Logger\Log;
 use Northrook\Resource\Path;
 use Psr\Log\LoggerInterface;
 use RecursiveDirectoryIterator;
@@ -38,46 +38,50 @@ class Stylesheet
      * @param ?LoggerInterface  $logger               Optional PSR-3 logger
      */
     public function __construct(
-        string                              $defaultSavePath,
-        array                               $sourceDirectories = [],
-        array                               $templateDirectories = [],
-        protected readonly ?LoggerInterface $logger = null,
-    ) {
-        Log::notice( 'Stylesheet initialization' );
+            string                              $defaultSavePath,
+            array                               $sourceDirectories = [],
+            array                               $templateDirectories = [],
+            protected readonly ?LoggerInterface $logger = null,
+    )
+    {
+        Clerk::event( $this::class, 'document' );
         $this->addSource( ... $sourceDirectories )
              ->addTemplateDirectory( ... $templateDirectories )
-            ->savePath = Get::path( $defaultSavePath, true );
-        Log::notice( 'Stylesheet initialized' );
+                ->savePath
+                = Get::path( $defaultSavePath, true );
+        Clerk::event( $this::class . '::initialized', 'document' );
     }
 
-    public function addBaseline() : Stylesheet {
+    public function addBaseline() : Stylesheet
+    {
         $precompiled   = [ 'baseline' => new Path( __DIR__ . '/Precompiled/baseline.css' ) ];
         $this->sources = [ ...$precompiled, ... $this->sources ];
         return $this;
     }
 
-    public function addReset() : Stylesheet {
+    public function addReset() : Stylesheet
+    {
         $precompiled   = [ 'reset' => new Path( __DIR__ . '/Precompiled/reset.css' ) ];
         $this->sources = [ ...$precompiled, ... $this->sources ];
         return $this;
     }
 
-    public function addDynamicRules() : Stylesheet {
+    public function addDynamicRules() : Stylesheet
+    {
         $precompiled   = [ 'dynamicRules' => new Path( __DIR__ . '/Precompiled/dynamicrules.css' ) ];
         $this->sources = [ ...$precompiled, ... $this->sources ];
         return $this;
     }
 
-    public function addSource( string ...$add ) : Stylesheet {
-
+    public function addSource( string ...$add ) : Stylesheet
+    {
         $this->throwIfLocked( "Unable to add new source; locked by the build proccess." );
 
         foreach ( $add as $source ) {
-
             if ( !$source ) {
                 $this->logger?->notice(
-                    "The provided source is an empty string. It was not enqueud.",
-                    [ 'sources' => $add, ],
+                        "The provided source is an empty string. It was not enqueud.",
+                        [ 'sources' => $add, ],
                 );
                 continue;
             }
@@ -96,18 +100,17 @@ class Stylesheet
             }
             else {
                 $this->logger?->error(
-                    "Unable to add new source {source}, the path is not readable.",
-                    [ 'source' => $source, 'path' => $path ],
+                        "Unable to add new source {source}, the path is not readable.",
+                        [ 'source' => $source, 'path' => $path ],
                 );
             }
-
         }
 
         return $this;
     }
 
-    public function addTemplateDirectory( string ...$add ) : Stylesheet {
-
+    public function addTemplateDirectory( string ...$add ) : Stylesheet
+    {
         $this->throwIfLocked( "Unable to add new template; locked by the build proccess." );
 
         foreach ( $add as $directory ) {
@@ -115,8 +118,8 @@ class Stylesheet
 
             if ( !$path->isReadable ) {
                 $this->logger?->error(
-                    "Unable to add new template directory '{directory}', as it cannot be read.",
-                    [ 'directory' => $directory, 'path' => $path ],
+                        "Unable to add new template directory '{directory}', as it cannot be read.",
+                        [ 'directory' => $directory, 'path' => $path ],
                 );
 
                 continue;
@@ -128,9 +131,9 @@ class Stylesheet
         return $this;
     }
 
-
-    final public function save( ?string $savePath = null, bool $force = false ) : bool {
-        Log::info( 'Start: ' . __METHOD__ );
+    final public function save( ?string $savePath = null, bool $force = false ) : bool
+    {
+        Clerk::event( __METHOD__, 'document' );
         if ( $savePath ) {
             $savePath = Get::path( $savePath, true );
 
@@ -139,8 +142,8 @@ class Stylesheet
             }
             else {
                 $this->logger?->error(
-                    'Unable to update save path "{savePath}", as it is not writable. Using default save path.',
-                    [ 'savePath' => $savePath ],
+                        'Unable to update save path "{savePath}", as it is not writable. Using default save path.',
+                        [ 'savePath' => $savePath ],
                 );
                 // if $this->strict { throw }
             }
@@ -148,8 +151,8 @@ class Stylesheet
 
         if ( $this->build( $force ) ) {
             $this->logger?->info(
-                'Saving compiled stylesheet to (path).',
-                [ 'path' => $this->savePath ],
+                    'Saving compiled stylesheet to (path).',
+                    [ 'path' => $this->savePath ],
             );
             $this->updated = $this->savePath->save( $this->compiler->css );
         }
@@ -157,12 +160,13 @@ class Stylesheet
             $this->updated = false;
         }
 
-        Log::info( 'End: ' . __METHOD__ );
+        Clerk::event( __METHOD__ )->stop();
         return $this->updated;
     }
 
-    final public function build( bool $force = false ) : bool {
-
+    final public function build( bool $force = false ) : bool
+    {
+        Clerk::event( __METHOD__, 'document' );
         // Lock the $sources
         $this->locked = true;
 
@@ -176,8 +180,8 @@ class Stylesheet
 
         // Initialize the compiler from provided $sources
         $this->compiler ??= new Compiler(
-            $this->enqueueSources( $sources ),
-            $this->logger,
+                $this->enqueueSources( $sources ),
+                $this->logger,
         );
 
         $this->compiler->parseEnqueued()
@@ -188,7 +192,8 @@ class Stylesheet
         return true;
     }
 
-    final protected function compiler() : Compiler {
+    final protected function compiler() : Compiler
+    {
         return $this->compiler ??= new Compiler( $this->sources, $this->logger );
     }
 
@@ -197,33 +202,33 @@ class Stylesheet
      *
      * @return void
      */
-    final protected function throwIfLocked( ?string $message = null ) : void {
+    final protected function throwIfLocked( ?string $message = null ) : void
+    {
         if ( $this->locked ) {
             throw new \LogicException(
-                $message ?? $this::class . " has been locked by the build proccess.",
+                    $message ?? $this::class . " has been locked by the build proccess.",
             );
         }
     }
 
-    final protected function scanSourceDirectories() : array {
-
+    final protected function scanSourceDirectories() : array
+    {
         $files       = [];
         $underscored = [];
 
         foreach ( $this->sources as $key => $source ) {
-
             try {
                 // Recursively scan all provided sources
                 $iterator = new RecursiveIteratorIterator(
-                    new RecursiveDirectoryIterator( (string) $source ),
-                    RecursiveIteratorIterator::CHILD_FIRST,
+                        new RecursiveDirectoryIterator( (string) $source ),
+                        RecursiveIteratorIterator::CHILD_FIRST,
                 );
             }
             catch ( UnexpectedValueException ) {
                 // If we encounter an exception, check if it is a raw source
                 if (
-                    \str_starts_with( $key, 'raw' )
-                    || $source instanceof Path
+                        \str_starts_with( $key, 'raw' )
+                        || $source instanceof Path
                 ) {
                     $files[ $key ] = $source;
                 }
@@ -232,7 +237,6 @@ class Stylesheet
 
             /** @var SplFileInfo $file */
             foreach ( $iterator as $file ) {
-
                 // Skip directories
                 if ( $file->isDir() || $file->getExtension() !== 'css' ) {
                     continue;
@@ -268,10 +272,9 @@ class Stylesheet
      *
      * @return bool True if at least one asset is newer, false otherwise
      */
-    private function updateSavedFile() : bool {
-
+    private function updateSavedFile() : bool
+    {
         if ( !isset( $this->savePath ) ) {
-
             $this->logger?->error( 'Stylesheet::savePath is not set.' );
 
             return false;
@@ -281,20 +284,18 @@ class Stylesheet
         return $this->lastModified >= ( $this->savePath->exists ? $this->savePath->lastModified : 0 );
     }
 
-    private function enqueueSources( array $sources ) : array {
-
+    private function enqueueSources( array $sources ) : array
+    {
         foreach ( $sources as $index => $source ) {
-
             $value = $source instanceof Path ? $source->read : $source;
 
             if ( !$value ) {
                 $this->logger?->critical(
-                    $this::class . ' is unable to read source "{source}"',
-                    [ 'source' => $source ],
+                        $this::class . ' is unable to read source "{source}"',
+                        [ 'source' => $source ],
                 );
             }
             $sources[ $index ] = $value;
-
         }
         return $sources;
     }
