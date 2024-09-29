@@ -17,7 +17,7 @@
   "minimum-stability": "dev",
   "prefer-stable": true,
   "require": {
-    "php": ">=8.1",
+    "php": ">=8.3",
     "northrook/core": "dev-main",
     "northrook/filesystem": "dev-main",
     "symfony/finder": "^7.1",

@@ -12,9 +12,7 @@ use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use SplFileInfo;
 use UnexpectedValueException;
-use function Northrook\hashKey;
-use function Northrook\sourceKey;
-
+use function String\{hashKey, sourceKey};
 
 /**
  * @author Martin Nielsen <mn@northrook.com>

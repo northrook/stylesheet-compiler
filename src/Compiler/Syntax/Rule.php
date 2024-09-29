@@ -5,7 +5,7 @@ declare( strict_types = 1 );
 namespace Northrook\CSS\Compiler\Syntax;
 
 use Northrook\Exception\CompileException;
-use function Northrook\replaceEach;
+use function String\replaceEach;
 
 /**
  * ```
@@ -13,6 +13,7 @@ use function Northrook\replaceEach;
  *     property: value;
  * }
  * ```
+ *
  * @internal
  * @author Martin Nielsen <mn@northrook.com>
  */
@@ -25,28 +26,29 @@ class Rule
     public readonly array  $declarations;
 
     public function __construct(
-        string $selector,
-        string $declaration,
-    ) {
+            string $selector,
+            string $declaration,
+    )
+    {
         $this->selector( $selector );
 
         $this->declarations( $declaration );
     }
 
-    private function selector( string $string ) : void {
+    private function selector( string $string ) : void
+    {
         $selector       = \trim( $string );
         $selector       = \preg_replace( '/\s*\+\s*/m', '+', $selector );
         $this->selector = $selector;
     }
 
-    private function declarations( string $declaration ) : void {
-
+    private function declarations( string $declaration ) : void
+    {
         $declarations = [];
 
         $exploded = $this->explode( $declaration );
 
         foreach ( $exploded as $declaration ) {
-
             if ( false === str_contains( $declaration, ':' ) ) {
                 throw new CompileException( 'Error parsing Stylesheet', $exploded );
             }
@@ -54,9 +56,9 @@ class Rule
             [ $selector, $value ] = \explode( ':', $declaration );
 
             $value = replaceEach(
-                [
-                    '0.' => '.',
-                ], $value,
+                    [
+                            '0.' => '.',
+                    ], $value,
             );
 
             $declarations[ $selector ] = $value;
@@ -65,9 +67,10 @@ class Rule
         $this->declarations = $declarations;
     }
 
-    private function explode( string $declaration ) : array {
+    private function explode( string $declaration ) : array
+    {
         return \array_filter(
-            \explode( ';', \trim( $declaration, " \n\r\t\v\0{}" ) ),
+                \explode( ';', \trim( $declaration, " \n\r\t\v\0{}" ) ),
         );
     }
 }

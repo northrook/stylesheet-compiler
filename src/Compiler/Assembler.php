@@ -4,7 +4,7 @@ declare( strict_types = 1 );
 
 namespace Northrook\CSS\Compiler;
 
-use function Northrook\arrayReplaceKey;
+use function Array\replaceKey;
 
 /**
  * @internal
@@ -15,16 +15,15 @@ class Assembler
     private string $stylesheet = '';
 
     public function __construct(
-        private array $rules,
-        private bool  $pretty = false,
-        private bool  $allowCharset = false,
+            private array $rules,
+            private bool  $pretty = false,
+            private bool  $allowCharset = false,
     ) {}
 
-    final public function build() : Assembler {
-
+    final public function build() : Assembler
+    {
         $this->rules = $this->combineDeclarations( $this->rules );
         foreach ( $this->rules as $selector => $rule ) {
-
             // if ( $this->allowCharset === false && $selector === '@charset' ) {
             //     continue;
             // }
@@ -42,14 +41,14 @@ class Assembler
         return $this;
     }
 
-    final public function toString() : string {
+    final public function toString() : string
+    {
         return $this->stylesheet;
     }
 
-    final protected function consumeRule( string $selector, mixed $rule ) : string {
-
+    final protected function consumeRule( string $selector, mixed $rule ) : string
+    {
         $declaration = '{';
-
 
         foreach ( $rule as $property => $value ) {
             if ( \is_string( $value ) ) {
@@ -60,7 +59,6 @@ class Assembler
                 $declaration .= $this->consumeRule( $property, $value );
                 continue;
             }
-
             // dump( $property, $value );
 
         }
@@ -72,8 +70,8 @@ class Assembler
         return "$selector$declaration";
     }
 
-    private function combineDeclarations( array $declaration ) : array {
-
+    private function combineDeclarations( array $declaration ) : array
+    {
         $merged = [];
 
         foreach ( $declaration as $selector => $rules ) {
@@ -82,17 +80,15 @@ class Assembler
             // dump( $selector );
             if ( $merge ) {
                 $combined = "$merge, $selector";
-                $merged   = arrayReplaceKey( $merged, $merge, $combined );
+                $merged   = replaceKey( $merged, $merge, $combined );
 
                 unset( $merged[ $selector ] ); // ! unset current key
             }
             else {
                 $merged[ $selector ] = $rules;
             }
-
         }
 
         return $merged;
-
     }
 }
