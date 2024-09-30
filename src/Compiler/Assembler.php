@@ -4,7 +4,7 @@ declare( strict_types = 1 );
 
 namespace Northrook\CSS\Compiler;
 
-use function Array\replaceKey;
+use Support\Arr;
 
 /**
  * @internal
@@ -80,7 +80,7 @@ class Assembler
             // dump( $selector );
             if ( $merge ) {
                 $combined = "$merge, $selector";
-                $merged   = replaceKey( $merged, $merge, $combined );
+                $merged   = Arr::replaceKey( $merged, $merge, $combined );
 
                 unset( $merged[ $selector ] ); // ! unset current key
             }

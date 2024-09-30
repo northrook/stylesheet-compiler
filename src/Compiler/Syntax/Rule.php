@@ -5,7 +5,7 @@ declare( strict_types = 1 );
 namespace Northrook\CSS\Compiler\Syntax;
 
 use Northrook\Exception\CompileException;
-use function String\replaceEach;
+use Support\Str;
 
 /**
  * ```
@@ -55,7 +55,7 @@ class Rule
 
             [ $selector, $value ] = \explode( ':', $declaration );
 
-            $value = replaceEach(
+            $value = Str::replaceEach(
                     [
                             '0.' => '.',
                     ], $value,

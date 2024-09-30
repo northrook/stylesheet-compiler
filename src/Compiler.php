@@ -12,7 +12,7 @@ use Northrook\CSS\Compiler\Syntax\Rule;
 use Northrook\CSS\Compiler\Syntax\Statement;
 use Northrook\Minify;
 use Psr\Log\LoggerInterface;
-use function Number\percentDifference;
+use Support\Num;
 use function String\hashKey;
 
 /**
@@ -260,7 +260,7 @@ class Compiler
         $differenceKb = $this->initialSizeBytes - $this->compiledSizeBytes;
 
         $differenceKb      = $this->initialSizeBytes - $this->compiledSizeBytes;
-        $differencePercent = percentDifference( $this->initialSizeBytes, $this->compiledSizeBytes );
+        $differencePercent = Num::percentDifference( $this->initialSizeBytes, $this->compiledSizeBytes );
         $this->logger->info(
                 message : ( $message ?? 'Stylesheet' ) . ' minified {percent}, from {from} to {to} saving {diff},',
                 context : [
