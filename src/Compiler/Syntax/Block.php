@@ -1,6 +1,6 @@
 <?php
 
-declare( strict_types = 1 );
+declare(strict_types=1);
 
 namespace Northrook\CSS\Compiler\Syntax;
 
@@ -11,19 +11,18 @@ namespace Northrook\CSS\Compiler\Syntax;
  *         property: value;
  *     }
  * }
- * ```
+ * ```.
  * @internal
  * @author Martin Nielsen <mn@northrook.com>
  */
-class Block
+final class Block
 {
     /**
-     * @param string          $selector
-     * @param Rule[]|Block[]  $declarations
+     * @param string         $selector
+     * @param Block[]|Rule[] $declarations
      */
     public function __construct(
         public readonly string $selector,
         public readonly array  $declarations,
     ) {}
-
 }

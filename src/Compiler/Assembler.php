@@ -1,6 +1,6 @@
 <?php
 
-declare( strict_types = 1 );
+declare(strict_types=1);
 
 namespace Northrook\CSS\Compiler;
 
@@ -10,26 +10,28 @@ use Support\Arr;
  * @internal
  * @author Martin Nielsen <mn@northrook.com>
  */
-class Assembler
+final class Assembler
 {
     private string $stylesheet = '';
 
     public function __construct(
-            private array $rules,
-            private bool  $pretty = false,
-            private bool  $allowCharset = false,
+        private array $rules,
+        private bool  $pretty = false,
+        private bool  $allowCharset = false,
     ) {}
 
     final public function build() : Assembler
     {
         $this->rules = $this->combineDeclarations( $this->rules );
+
         foreach ( $this->rules as $selector => $rule ) {
             // if ( $this->allowCharset === false && $selector === '@charset' ) {
             //     continue;
             // }
 
-            if ( $selector === "@charset" || $selector === "@import" ) {
-                $this->stylesheet .= $selector . '"' . $rule . '";';
+            if ( '@charset' === $selector || '@import' === $selector ) {
+                $this->stylesheet .= $selector.'"'.$rule.'";';
+
                 continue;
             }
 
@@ -52,22 +54,24 @@ class Assembler
 
         foreach ( $rule as $property => $value ) {
             if ( \is_string( $value ) ) {
-                $declaration .= "$property:$value;";
+                $declaration .= "{$property}:{$value};";
+
                 continue;
             }
             if ( \is_array( $value ) ) {
                 $declaration .= $this->consumeRule( $property, $value );
+
                 continue;
             }
             // dump( $property, $value );
 
         }
 
-        $declaration .= "}";
+        $declaration .= '}';
 
         // dump( $declarations );
 
-        return "$selector$declaration";
+        return "{$selector}{$declaration}";
     }
 
     private function combineDeclarations( array $declaration ) : array
@@ -75,17 +79,17 @@ class Assembler
         $merged = [];
 
         foreach ( $declaration as $selector => $rules ) {
-            $merge = array_search( $rules, $merged, true );
+            $merge = \array_search( $rules, $merged, true );
 
             // dump( $selector );
             if ( $merge ) {
-                $combined = "$merge, $selector";
+                $combined = "{$merge}, {$selector}";
                 $merged   = Arr::replaceKey( $merged, $merge, $combined );
 
-                unset( $merged[ $selector ] ); // ! unset current key
+                unset( $merged[$selector] ); // ! unset current key
             }
             else {
-                $merged[ $selector ] = $rules;
+                $merged[$selector] = $rules;
             }
         }
 

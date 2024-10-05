@@ -10,6 +10,8 @@
 /composer.lock
 
 # Build data
+*.lock
+*.cache
 _src/
 build/
 assets/
