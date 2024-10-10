@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Northrook\CSS;
 
+use JetBrains\PhpStorm\Deprecated;
+use LogicException;
 use Northrook\{Clerk, Get};
 use Northrook\Resource\Path;
 use Psr\Log\LoggerInterface;
@@ -11,7 +13,6 @@ use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use SplFileInfo;
 use UnexpectedValueException;
-use LogicException;
 use function String\{hashKey, sourceKey};
 
 /**
@@ -21,7 +22,7 @@ class Stylesheet
 {
     private readonly Compiler $compiler;
 
-    private Path $savePath;
+    private ?Path $savePath;
 
     private array $sources = [];
 
@@ -34,56 +35,43 @@ class Stylesheet
     protected bool $updated = false;
 
     /**
-     * @param string           $defaultSavePath     Where to save the generated stylesheet
-     * @param array            $sourceDirectories   Will be scanned for .css files
-     * @param array            $templateDirectories .latte files will be scanned for dynamic styles
-     * @param ?LoggerInterface $logger              Optional PSR-3 logger
+     * @param ?string          $defaultSavePath
+     * @param string[]         $sources         Will be scanned for .css files
+     * @param ?LoggerInterface $logger          Optional PSR-3 logger
      */
     public function __construct(
-        string                              $defaultSavePath,
-        array                               $sourceDirectories = [],
-        array                               $templateDirectories = [],
+        ?string                             $defaultSavePath = null,
+        array                               $sources = [],
+        // array                               $templateDirectories = [], // TODO : [low]
         protected readonly ?LoggerInterface $logger = null,
     ) {
         Clerk::event( $this::class, 'document' );
-        $this->addSource( ...$sourceDirectories )
-            ->addTemplateDirectory( ...$templateDirectories )
-            ->savePath
-            = Get::path( $defaultSavePath, true );
+        $this->addSource( ...$sources );
+
+        $this->savePath = $defaultSavePath ? new Path( $defaultSavePath ) : null;
+
         Clerk::event( $this::class.'::initialized', 'document' );
     }
 
-    public function addBaseline() : Stylesheet
+    /**
+     * Add one or more stylesheets to this generator.
+     *
+     * Accepts raw CSS, or a path to a CSS file.
+     *
+     * @param string ...$add
+     *
+     * @return $this
+     */
+    final public function addSource( string ...$add ) : Stylesheet
     {
-        $precompiled   = ['baseline' => new Path( __DIR__.'/Precompiled/baseline.css' )];
-        $this->sources = [...$precompiled, ...$this->sources];
-        return $this;
-    }
+        // TODO : [low] Support URL
 
-    public function addReset() : Stylesheet
-    {
-        $precompiled   = ['reset' => new Path( __DIR__.'/Precompiled/reset.css' )];
-        $this->sources = [...$precompiled, ...$this->sources];
-        return $this;
-    }
-
-    public function addDynamicRules() : Stylesheet
-    {
-        $precompiled   = ['dynamicRules' => new Path( __DIR__.'/Precompiled/dynamicrules.css' )];
-        $this->sources = [...$precompiled, ...$this->sources];
-        return $this;
-    }
-
-    public function addSource( string ...$add ) : Stylesheet
-    {
         $this->throwIfLocked( 'Unable to add new source; locked by the build proccess.' );
 
         foreach ( $add as $source ) {
+
             if ( ! $source ) {
-                $this->logger?->notice(
-                    'The provided source is an empty string. It was not enqueud.',
-                    ['sources' => $add],
-                );
+                $this->logger?->warning( $this::class.' was provided an empty source string. It was not enqueued.', ['sources' => $add] );
 
                 continue;
             }
@@ -95,45 +83,99 @@ class Stylesheet
                 continue;
             }
 
-            $path = Get::path( $source, true );
+            $path = new Path( $source );
 
             // If the source is a valid, readable path, add it
-            if ( $path->isReadable ) {
+            if ( 'css' === $path->extension && $path->isReadable ) {
                 $this->sources["{$path->extension}:".sourceKey( $path )] ??= $path;
-            }
-            else {
-                $this->logger?->error(
-                    'Unable to add new source {source}, the path is not readable.',
-                    ['source' => $source, 'path' => $path],
-                );
-            }
-        }
-
-        return $this;
-    }
-
-    public function addTemplateDirectory( string ...$add ) : Stylesheet
-    {
-        $this->throwIfLocked( 'Unable to add new template; locked by the build proccess.' );
-
-        foreach ( $add as $directory ) {
-            $path = Get::path( $directory, true );
-
-            if ( ! $path->isReadable ) {
-                $this->logger?->error(
-                    "Unable to add new template directory '{directory}', as it cannot be read.",
-                    ['directory' => $directory, 'path' => $path],
-                );
 
                 continue;
             }
 
-            $this->templateDirectories[sourceKey( $path )] ??= $path;
+            $this->logger?->error(
+                'Unable to add new source {source}, the path is not valid.',
+                ['source' => $source, 'path' => $path],
+            );
         }
 
         return $this;
     }
 
+    // TODO : [low]
+    // final public function addTemplateDirectory( string ...$add ) : Stylesheet
+    // {
+    //     $this->throwIfLocked( 'Unable to add new template; locked by the build proccess.' );
+    //
+    //     foreach ( $add as $directory ) {
+    //         $path = Get::path( $directory, true );
+    //
+    //         if ( ! $path->isReadable ) {
+    //             $this->logger?->error(
+    //                 "Unable to add new template directory '{directory}', as it cannot be read.",
+    //                 ['directory' => $directory, 'path' => $path],
+    //             );
+    //
+    //             continue;
+    //         }
+    //
+    //         $this->templateDirectories[sourceKey( $path )] ??= $path;
+    //     }
+    //
+    //     return $this;
+    // }
+
+    final public function compile() : string
+    {
+        Clerk::event( __METHOD__ );
+
+        // Lock the $sources
+        $this->locked = true;
+
+        // Initialize the compiler from provided $sources
+        $this->compiler ??= new Compiler(
+            $this->enqueueSources( $this->sources ),
+            $this->logger,
+        );
+        $this->compiler->parseEnqueued()
+            ->mergeRules()
+            ->generateStylesheet();
+
+        $this->locked = false;
+
+        Clerk::event( __METHOD__ )->stop();
+        return $this->compiler->css;
+    }
+
+    #[Deprecated]
+    final public function build( bool $force = false ) : bool
+    {
+        Clerk::event( __METHOD__, 'document' );
+        // Lock the $sources
+        $this->locked = true;
+
+        // Find all $sources
+        $sources = $this->scanSourceDirectories();
+
+        // Bail if we have no sources, or if generation is unnecessary
+        if ( ! $sources || ( ! $force && ! $this->updateSavedFile() ) ) {
+            return false;
+        }
+
+        // Initialize the compiler from provided $sources
+        $this->compiler ??= new Compiler(
+            $this->enqueueSources( $sources ),
+            $this->logger,
+        );
+
+        $this->compiler->parseEnqueued()
+            ->mergeRules()
+            ->generateStylesheet();
+
+        $this->locked = false;
+        return true;
+    }
+
+    #[Deprecated]
     final public function save( ?string $savePath = null, bool $force = false ) : bool
     {
         Clerk::event( __METHOD__, 'document' );
@@ -167,39 +209,6 @@ class Stylesheet
         return $this->updated;
     }
 
-    final public function build( bool $force = false ) : bool
-    {
-        Clerk::event( __METHOD__, 'document' );
-        // Lock the $sources
-        $this->locked = true;
-
-        // Find all $sources
-        $sources = $this->scanSourceDirectories();
-
-        // Bail if we have no sources, or if generation is unnecessary
-        if ( ! $sources || ( ! $force && ! $this->updateSavedFile() ) ) {
-            return false;
-        }
-
-        // Initialize the compiler from provided $sources
-        $this->compiler ??= new Compiler(
-            $this->enqueueSources( $sources ),
-            $this->logger,
-        );
-
-        $this->compiler->parseEnqueued()
-            ->mergeRules()
-            ->generateStylesheet();
-
-        $this->locked = false;
-        return true;
-    }
-
-    final protected function compiler() : Compiler
-    {
-        return $this->compiler ??= new Compiler( $this->sources, $this->logger );
-    }
-
     /**
      * @param ?string $message Optional message
      *
@@ -208,10 +217,11 @@ class Stylesheet
     final protected function throwIfLocked( ?string $message = null ) : void
     {
         if ( $this->locked ) {
-            throw new LogicException( $message ?? $this::class.' has been locked by the build proccess.');
+            throw new LogicException( $message ?? $this::class.' has been locked by the compile proccess.' );
         }
     }
 
+    #[Deprecated]
     final protected function scanSourceDirectories() : array
     {
         $files       = [];
